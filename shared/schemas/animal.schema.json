@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://herdmanager.app/schemas/animal.json",
+  "title": "Animal",
+  "description": "Core animal entity for HerdManager",
+  "type": "object",
+  "required": ["id", "earTagNumber", "sex", "breed", "dateOfBirth", "farmId", "status", "createdAt", "updatedAt"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "earTagNumber": { "type": "string", "minLength": 1 },
+    "rfid": { "type": ["string", "null"] },
+    "name": { "type": ["string", "null"] },
+    "sex": { "enum": ["MALE", "FEMALE"] },
+    "breed": { "type": "string" },
+    "dateOfBirth": { "type": "string", "format": "date" },
+    "farmId": { "type": "string", "format": "uuid" },
+    "coatColor": { "type": ["string", "null"] },
+    "hornStatus": { "enum": ["POLLED", "HORNED", "SCURED"], "nullable": true },
+    "registrationNumbers": { "type": "array", "items": { "type": "string" }, "nullable": true },
+    "status": { "enum": ["ACTIVE", "SOLD", "DECEASED", "CULLED", "ACQUIRED_FROM"] },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "syncStatus": { "enum": ["SYNCED", "PENDING", "CONFLICT"] }
+  }
+}

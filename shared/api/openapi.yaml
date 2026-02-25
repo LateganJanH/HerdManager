@@ -1,0 +1,147 @@
+openapi: 3.0.3
+info:
+  title: HerdManager API
+  description: REST API for HerdManager cattle management system
+  version: 0.1.0
+
+servers:
+  - url: /api/v1
+    description: API base path (proxied to Firebase/Cloud Functions)
+
+paths:
+  /devices:
+    get:
+      summary: List linked field devices
+      description: Returns mobile devices (phones/tablets) that have been linked to this dashboard and sync herd data. Multiple devices per account are supported.
+      responses:
+        '200':
+          description: List of linked devices with last sync time
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LinkedDevicesResponse' }
+  /animals:
+    get:
+      summary: List animals
+      parameters:
+        - name: farmId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          schema: { type: string, enum: [ACTIVE, SOLD, DECEASED, CULLED] }
+      responses:
+        '200':
+          description: List of animals
+    post:
+      summary: Create animal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Animal' }
+      responses:
+        '201':
+          description: Animal created
+
+  /animals/{id}:
+    get:
+      summary: Get animal by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Animal
+        '404':
+          description: Not found
+    put:
+      summary: Update animal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Animal' }
+      responses:
+        '200':
+          description: Updated
+
+  /breeding-events:
+    post:
+      summary: Create breeding event
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BreedingEvent' }
+      responses:
+        '201':
+          description: Created
+
+  /calving-events:
+    post:
+      summary: Create calving event
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CalvingEvent' }
+      responses:
+        '201':
+          description: Created
+
+components:
+  schemas:
+    LinkedDevice:
+      type: object
+      required: [id, name, lastSyncAt]
+      properties:
+        id: { type: string, description: Unique device identifier }
+        name: { type: string, description: User-facing label (e.g. "Field phone") }
+        lastSyncAt: { type: number, description: Unix timestamp (ms) of last successful sync }
+        platform: { type: string, nullable: true, description: e.g. "Android" }
+    LinkedDevicesResponse:
+      type: object
+      required: [devices]
+      properties:
+        devices: { type: array, items: { $ref: '#/components/schemas/LinkedDevice' } }
+    Animal:
+      type: object
+      required: [id, earTagNumber, sex, breed, dateOfBirth, farmId, status]
+      properties:
+        id: { type: string, format: uuid }
+        earTagNumber: { type: string }
+        rfid: { type: string, nullable: true }
+        name: { type: string, nullable: true }
+        sex: { enum: [MALE, FEMALE] }
+        breed: { type: string }
+        dateOfBirth: { type: string, format: date }
+        farmId: { type: string, format: uuid }
+        coatColor: { type: string, nullable: true }
+        hornStatus: { enum: [POLLED, HORNED, SCURED], nullable: true }
+        status: { enum: [ACTIVE, SOLD, DECEASED, CULLED, ACQUIRED_FROM] }
+    BreedingEvent:
+      type: object
+      required: [animalId, eventType, serviceDate]
+      properties:
+        id: { type: string, format: uuid }
+        animalId: { type: string, format: uuid }
+        sireId: { type: string, format: uuid, nullable: true }
+        eventType: { enum: [NATURAL, AI, EMBRYO_TRANSFER] }
+        serviceDate: { type: string, format: date }
+    CalvingEvent:
+      type: object
+      required: [damId, breedingEventId, actualDate, assistanceRequired]
+      properties:
+        id: { type: string, format: uuid }
+        damId: { type: string, format: uuid }
+        calfId: { type: string, format: uuid, nullable: true }
+        breedingEventId: { type: string, format: uuid }
+        actualDate: { type: string, format: date }
+        assistanceRequired: { type: boolean }
+        calfSex: { enum: [MALE, FEMALE], nullable: true }
+        calfWeight: { type: number, nullable: true }

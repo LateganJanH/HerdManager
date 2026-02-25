@@ -1,0 +1,15 @@
+// Example Firestore security rules for HerdManager.
+// Copy to Firebase Console → Firestore Database → Rules (or deploy with Firebase CLI).
+//
+// Data layout: users/{userId}/animals, breeding_events, calving_events, devices, etc.
+// Only the signed-in user may read/write their own users/{userId}/... subtree.
+// Android writes to users/{uid}/devices/{deviceId} on each sync for the web "linked devices" list.
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

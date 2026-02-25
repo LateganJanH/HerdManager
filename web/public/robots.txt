@@ -1,0 +1,3 @@
+# HerdManager web dashboard
+User-agent: *
+Allow: /

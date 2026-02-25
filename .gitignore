@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+android/app/build/
+android/build/
+web/.next/
+web/out/
+dist/
+*.apk
+*.aab
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Local env
+.env
+.env.*
+!.env.example
+*.local
+
+# Firebase (add your own from Firebase Console)
+**/google-services.json
+
+# Gradle
+android/.gradle/
+android/local.properties
+android/gradle-app.setting
+!android/gradle/wrapper/gradle-wrapper.jar
+
+# Logs and temp
+*.log
+*.tmp
+*.temp
+_tmp_*
+.cache/
+
+# Test / coverage
+coverage/
+.nyc_output/
+*.lcov
+# Playwright
+web/test-results/
+web/playwright-report/
+web/blob-report/
+web/playwright/.cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Cursor / agent (optional – remove if you want these tracked)
+agent-tools/
+.cursor/
