@@ -44,7 +44,8 @@ private enum class AlertsFilter(val label: String) {
     ALL("All"),
     CALVING("Calving"),
     PREGNANCY_CHECK("Pregnancy check"),
-    WITHDRAWAL("Withdrawal")
+    WITHDRAWAL("Withdrawal"),
+    WEANING_WEIGHT("Weaning weight")
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,6 +58,7 @@ fun BreedingScreen(
     val calvings by viewModel.upcomingCalvings.collectAsState(initial = emptyList())
     val pregnancyChecks by viewModel.pregnancyCheckDue.collectAsState(initial = emptyList())
     val withdrawals by viewModel.withdrawalDue.collectAsState(initial = emptyList())
+    val weaningWeightDue by viewModel.weaningWeightDue.collectAsState(initial = emptyList())
     var filter by remember { mutableStateOf(AlertsFilter.ALL) }
     var isRefreshing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -64,7 +66,8 @@ fun BreedingScreen(
     val showCalving = filter == AlertsFilter.ALL || filter == AlertsFilter.CALVING
     val showPregnancyCheck = filter == AlertsFilter.ALL || filter == AlertsFilter.PREGNANCY_CHECK
     val showWithdrawal = filter == AlertsFilter.ALL || filter == AlertsFilter.WITHDRAWAL
-    val hasAny = calvings.isNotEmpty() || pregnancyChecks.isNotEmpty() || withdrawals.isNotEmpty()
+    val showWeaningWeight = filter == AlertsFilter.ALL || filter == AlertsFilter.WEANING_WEIGHT
+    val hasAny = calvings.isNotEmpty() || pregnancyChecks.isNotEmpty() || withdrawals.isNotEmpty() || weaningWeightDue.isNotEmpty()
 
     Scaffold(
         topBar = {
@@ -83,7 +86,7 @@ fun BreedingScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "Calving due, pregnancy check and withdrawal-period reminders",
+                    text = "Calving due, pregnancy check, withdrawal and weaning weight reminders",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -117,7 +120,7 @@ fun BreedingScreen(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "No calving, pregnancy check or withdrawal alerts",
+                        text = "No calving, pregnancy check, withdrawal or weaning weight alerts",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -213,6 +216,26 @@ fun BreedingScreen(
                                 )
                             }
                         }
+                        if (showWeaningWeight && weaningWeightDue.isNotEmpty()) {
+                            if (filter == AlertsFilter.ALL) {
+                                item(key = "header_weaning") {
+                                    Text(
+                                        text = "Weaning weight due",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(vertical = 4.dp)
+                                    )
+                                }
+                            }
+                            items(weaningWeightDue, key = { "weaning_${it.animalId}" }) { item ->
+                                WeaningWeightDueCard(
+                                    earTag = item.earTag,
+                                    weaningDueDate = item.weaningDueDate,
+                                    daysUntilDue = item.daysUntilDue,
+                                    onClick = { onAnimalClick(item.animalId) }
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -300,6 +323,50 @@ private fun WithdrawalDueCard(
                     append("Withdrawal ends: $endDate")
                     if (!product.isNullOrBlank()) append(" · $product")
                 },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = dueLabel,
+                style = MaterialTheme.typography.labelLarge,
+                color = statusColor
+            )
+        }
+    }
+}
+
+@Composable
+private fun WeaningWeightDueCard(
+    earTag: String,
+    weaningDueDate: java.time.LocalDate,
+    daysUntilDue: Long,
+    onClick: () -> Unit = {}
+) {
+    val statusColor = when {
+        daysUntilDue < 0 -> MaterialTheme.colorScheme.error
+        daysUntilDue <= 7 -> MaterialTheme.colorScheme.tertiary
+        else -> MaterialTheme.colorScheme.primary
+    }
+    val dueLabel = when {
+        daysUntilDue < 0 -> "Overdue by ${-daysUntilDue} days"
+        daysUntilDue == 0L -> "Due today"
+        else -> "$daysUntilDue days until weaning weight due"
+    }
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick, role = Role.Button, onClickLabel = "Open $earTag, $dueLabel"),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Text(
+                text = earTag,
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                text = "Weaning weight due: $weaningDueDate",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

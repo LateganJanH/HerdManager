@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Web build/runtime: removed circular dependency between `mockHerdData` and `sampleStatsData` by introducing `herdStatsTypes.ts` (shared `HerdStats` type); avoids "Cannot read properties of undefined (reading 'call')" at runtime. If build fails with ENOENT on `.nft.json`, delete `.next` and run `pnpm run build` again.
+
 ### Added
 
 - Phase 2 pedigree: Sire and dam on animal. **Android:** Animal detail shows Sire/Dam; Edit animal has optional Pedigree section (sire/dam dropdowns); new calves get damId; Animal/AnimalEntity/sync/backup include sireId/damId; Room DB version 12. **Web:** Profiles animal detail shows Sire/Dam when from Firestore (sireEarTag/damEarTag resolved from animals collection). **Shared:** OpenAPI and animal.schema.json include optional sireId, damId.
@@ -31,6 +35,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Sitemap test: sitemap.test.ts asserts non-empty entries with url and lastModified; base URL shape
 - README: data source & refresh bullet for all tabs; Development uses pnpm dev with npm alternative
 - Alerts: data source line and "Last updated" when from API; Refresh button (consistent with Home, Profiles, Analytics)
+- **Weaning weight due on web:** Alerts tab shows weaning-weight-due items (calves with weaning date in next 14 days or up to 30 days overdue, no weight in window); filter “Weaning weight”; Home due-soon preview and label; Settings → Edit farm: Weaning age (days) 150–300; Firestore fetch uses farm settings + animals (DOB) + weight_records; real-time listeners for weight_records and settings/farm
 - Profiles: use useHerdStats for herd count and data source; "Data: X · Last updated Y" and Refresh button (consistent with Home and Analytics)
 - Analytics: "Last updated X" when data is from API; Refresh button to refetch stats (consistent with Home)
 - GET /api/devices test: assert response devices pass filterValidDevices (contract for backend)

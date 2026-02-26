@@ -72,6 +72,7 @@ fun FarmSettingsScreen(
     var calvingAlertDays by remember { mutableStateOf("14") }
     var pregnancyCheckDays by remember { mutableStateOf("45") }
     var gestationDays by remember { mutableStateOf("283") }
+    var weaningAgeDays by remember { mutableStateOf("200") }
     var showRestoreConfirm by remember { mutableStateOf(false) }
     var showSignOutConfirm by remember { mutableStateOf(false) }
     var herdToDelete by remember { mutableStateOf<Herd?>(null) }
@@ -172,6 +173,7 @@ fun FarmSettingsScreen(
         gestationDays = settings.gestationDays.toString()
         calvingAlertDays = settings.calvingAlertDays.toString()
         pregnancyCheckDays = settings.pregnancyCheckDaysAfterBreeding.toString()
+        weaningAgeDays = settings.weaningAgeDays.toString()
     }
 
     Scaffold(
@@ -361,6 +363,26 @@ fun FarmSettingsScreen(
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp)
             )
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedTextField(
+                value = weaningAgeDays,
+                onValueChange = { newVal ->
+                    if (newVal.isEmpty() || newVal.all { it.isDigit() }) {
+                        weaningAgeDays = newVal
+                    }
+                },
+                label = { Text("Weaning age (days)") },
+                placeholder = { Text("200") },
+                supportingText = {
+                    Text(
+                        text = "Alert when weaning weight is due (${FarmSettings.WEANING_AGE_DAYS_MIN}–${FarmSettings.WEANING_AGE_DAYS_MAX}, typical 200)",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp)
+            )
             Spacer(modifier = Modifier.height(24.dp))
             Text(
                 text = "Herds",
@@ -490,6 +512,11 @@ fun FarmSettingsScreen(
                                 ?: FarmSettings.DEFAULT_GESTATION_DAYS).coerceIn(
                                 FarmSettings.GESTATION_DAYS_MIN,
                                 FarmSettings.GESTATION_DAYS_MAX
+                            ),
+                            weaningAgeDays = (weaningAgeDays.toIntOrNull()
+                                ?: FarmSettings.DEFAULT_WEANING_AGE_DAYS).coerceIn(
+                                FarmSettings.WEANING_AGE_DAYS_MIN,
+                                FarmSettings.WEANING_AGE_DAYS_MAX
                             )
                         )
                     )

@@ -17,7 +17,9 @@ data class FarmSettings(
     val contacts: List<FarmContact> = emptyList(),
     val calvingAlertDays: Int = DEFAULT_CALVING_ALERT_DAYS,
     val pregnancyCheckDaysAfterBreeding: Int = DEFAULT_PREGNANCY_CHECK_DAYS,
-    val gestationDays: Int = DEFAULT_GESTATION_DAYS
+    val gestationDays: Int = DEFAULT_GESTATION_DAYS,
+    /** Age in days at which weaning weight is typically recorded; used for "weaning weight due" alerts. */
+    val weaningAgeDays: Int = DEFAULT_WEANING_AGE_DAYS
 ) {
     companion object {
         const val DEFAULT_FARM_ID = "default-farm-mvp"
@@ -30,6 +32,9 @@ data class FarmSettings(
         const val DEFAULT_GESTATION_DAYS = 283
         const val GESTATION_DAYS_MIN = 250
         const val GESTATION_DAYS_MAX = 320
+        const val DEFAULT_WEANING_AGE_DAYS = 200
+        const val WEANING_AGE_DAYS_MIN = 150
+        const val WEANING_AGE_DAYS_MAX = 300
     }
     val displayName: String get() = name.ifBlank { "My Farm" }
 
@@ -41,4 +46,7 @@ data class FarmSettings(
 
     fun gestationDaysClamped(): Int =
         gestationDays.coerceIn(GESTATION_DAYS_MIN, GESTATION_DAYS_MAX)
+
+    fun weaningAgeDaysClamped(): Int =
+        weaningAgeDays.coerceIn(WEANING_AGE_DAYS_MIN, WEANING_AGE_DAYS_MAX)
 }

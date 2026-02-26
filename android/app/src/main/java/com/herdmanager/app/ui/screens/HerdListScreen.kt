@@ -413,21 +413,26 @@ fun HerdListScreen(
             }
             if (isListLoading) {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(6) { HerdListSkeletonItem() }
                 }
             } else if (filteredAnimals.isEmpty()) {
-                EmptyHerdState(
-                    onAddAnimal = onAddAnimal,
-                    onClearSearch = { searchQuery = "" },
-                    hasAnimals = animals.isNotEmpty(),
-                    searchQuery = searchQuery
-                )
+                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    EmptyHerdState(
+                        onAddAnimal = onAddAnimal,
+                        onClearSearch = { searchQuery = "" },
+                        hasAnimals = animals.isNotEmpty(),
+                        searchQuery = searchQuery
+                    )
+                }
             } else {
                 PullToRefreshBox(
+                    modifier = Modifier.weight(1f),
                     isRefreshing = isSyncing,
                     onRefresh = { viewModel.syncNow() }
                 ) {

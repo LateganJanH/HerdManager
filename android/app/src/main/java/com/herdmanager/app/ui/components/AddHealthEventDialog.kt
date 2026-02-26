@@ -21,12 +21,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.herdmanager.app.domain.model.HealthEvent
 import com.herdmanager.app.domain.model.HealthEventType
 import java.time.LocalDate
 
 @Composable
 fun AddHealthEventDialog(
     onConfirm: (
+        eventId: String?,
         eventType: HealthEventType,
         date: LocalDate,
         product: String?,
@@ -34,14 +36,15 @@ fun AddHealthEventDialog(
         withdrawalPeriodEnd: LocalDate?,
         notes: String?
     ) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    existing: HealthEvent? = null
 ) {
-    var eventType by remember { mutableStateOf(HealthEventType.VACCINATION) }
-    var date by remember { mutableStateOf(LocalDate.now()) }
-    var product by remember { mutableStateOf("") }
-    var dosage by remember { mutableStateOf("") }
-    var withdrawalDateStr by remember { mutableStateOf("") }
-    var notes by remember { mutableStateOf("") }
+    var eventType by remember(existing) { mutableStateOf(existing?.eventType ?: HealthEventType.VACCINATION) }
+    var date by remember(existing) { mutableStateOf(existing?.date ?: LocalDate.now()) }
+    var product by remember(existing) { mutableStateOf(existing?.product ?: "") }
+    var dosage by remember(existing) { mutableStateOf(existing?.dosage ?: "") }
+    var withdrawalDateStr by remember(existing) { mutableStateOf(existing?.withdrawalPeriodEnd?.toString() ?: "") }
+    var notes by remember(existing) { mutableStateOf(existing?.notes ?: "") }
     var showDatePicker by remember { mutableStateOf(false) }
     var showWithdrawalDatePicker by remember { mutableStateOf(false) }
 
@@ -68,7 +71,7 @@ fun AddHealthEventDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Log treatment or vaccination") },
+        title = { Text(if (existing != null) "Edit health event" else "Log treatment or vaccination") },
         text = {
             Column(
                 modifier = Modifier
@@ -144,6 +147,7 @@ fun AddHealthEventDialog(
             TextButton(
                 onClick = {
                     onConfirm(
+                        existing?.id,
                         eventType,
                         date,
                         product.takeIf { it.isNotBlank() },
@@ -154,7 +158,7 @@ fun AddHealthEventDialog(
                     onDismiss()
                 }
             ) {
-                Text("Save", color = MaterialTheme.colorScheme.primary)
+                Text(if (existing != null) "Update" else "Save", color = MaterialTheme.colorScheme.primary)
             }
         },
         dismissButton = {

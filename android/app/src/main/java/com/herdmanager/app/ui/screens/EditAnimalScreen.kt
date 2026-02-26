@@ -413,22 +413,25 @@ fun EditAnimalScreen(
             Button(
                 onClick = {
                     error = null
-                    if (canSave) viewModel.updateAnimal(
-                        animal!!.copy(
-                            earTagNumber = earTag.trim(),
-                            rfid = rfid.takeIf { it.isNotBlank() },
-                            name = name.takeIf { it.isNotBlank() },
-                            sex = sex,
-                            breed = breed.trim(),
-                            dateOfBirth = dateOfBirth!!,
-                            coatColor = coatColor.takeIf { it.isNotBlank() },
-                            hornStatus = hornStatus,
-                            isCastrated = if (sex == Sex.MALE) isCastrated else null,
-                            avatarPhotoId = animal!!.avatarPhotoId,
-                            status = status
-                        ),
-                        newHerdId = selectedHerdId
-                    )
+                    if (canSave) {
+                        val a = animal
+                        if (a != null) viewModel.updateAnimal(
+                            a.copy(
+                                earTagNumber = earTag.trim(),
+                                rfid = rfid.takeIf { it.isNotBlank() },
+                                name = name.takeIf { it.isNotBlank() },
+                                sex = sex,
+                                breed = breed.trim(),
+                                dateOfBirth = dateOfBirth!!,
+                                coatColor = coatColor.takeIf { it.isNotBlank() },
+                                hornStatus = hornStatus,
+                                isCastrated = if (sex == Sex.MALE) isCastrated else null,
+                                avatarPhotoId = a.avatarPhotoId,
+                                status = status
+                            ),
+                            newHerdId = selectedHerdId
+                        )
+                    }
                 },
                 enabled = canSave,
                 modifier = Modifier.fillMaxWidth(),

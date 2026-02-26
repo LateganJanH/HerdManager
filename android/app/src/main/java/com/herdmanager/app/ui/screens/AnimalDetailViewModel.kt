@@ -206,6 +206,7 @@ class AnimalDetailViewModel @Inject constructor(
                 if (animal?.sex != Sex.FEMALE) {
                     AnimalDetailOperationResult.Error(AnimalDetailOperation.CALVING, "Only female animals (dams) can have calving recorded.")
                 } else runCatching {
+                    val damHerdId = animal.currentHerdId
                     val calfId = if (createCalf) {
                         val calf = Animal(
                             id = UUID.randomUUID().toString(),
@@ -214,12 +215,16 @@ class AnimalDetailViewModel @Inject constructor(
                             breed = "Unknown",
                             dateOfBirth = actualDate,
                             farmId = FarmSettings.DEFAULT_FARM_ID,
+                            currentHerdId = damHerdId,
                             avatarPhotoId = null,
                             isCastrated = false,
                             status = AnimalStatus.ACTIVE,
                             damId = animalId
                         )
                         animalRepository.insertAnimal(calf)
+                        if (damHerdId != null) {
+                            herdRepository.assignAnimalToHerd(calf.id, damHerdId, actualDate, null)
+                        }
                         calf.id
                     } else null
                     calvingEventRepository.insertCalvingEvent(
@@ -328,6 +333,20 @@ class AnimalDetailViewModel @Inject constructor(
         }
     }
 
+    fun updateHealthEvent(event: HealthEvent) {
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    healthEventRepository.updateHealthEvent(event)
+                    AnimalDetailOperationResult.Success(AnimalDetailOperation.HEALTH, "Health event updated")
+                }.getOrElse {
+                    AnimalDetailOperationResult.Error(AnimalDetailOperation.HEALTH, it.message ?: "Could not update health event")
+                }
+            }
+            _operationResult.emit(result)
+        }
+    }
+
     fun addWeightRecord(date: LocalDate, weightKg: Double, note: String?) {
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) {
@@ -344,6 +363,20 @@ class AnimalDetailViewModel @Inject constructor(
                     AnimalDetailOperationResult.Success(AnimalDetailOperation.WEIGHT, "Weight recorded")
                 }.getOrElse {
                     AnimalDetailOperationResult.Error(AnimalDetailOperation.WEIGHT, it.message ?: "Could not add weight")
+                }
+            }
+            _operationResult.emit(result)
+        }
+    }
+
+    fun updateWeightRecord(record: WeightRecord) {
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    weightRecordRepository.updateWeightRecord(record)
+                    AnimalDetailOperationResult.Success(AnimalDetailOperation.WEIGHT, "Weight updated")
+                }.getOrElse {
+                    AnimalDetailOperationResult.Error(AnimalDetailOperation.WEIGHT, it.message ?: "Could not update weight")
                 }
             }
             _operationResult.emit(result)

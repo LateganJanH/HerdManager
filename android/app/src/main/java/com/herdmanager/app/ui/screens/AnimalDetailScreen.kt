@@ -35,10 +35,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Alignment
@@ -82,8 +80,9 @@ fun AnimalDetailScreen(
     var showTransferHerd by remember { mutableStateOf(false) }
     var showAddHealthEvent by remember { mutableStateOf(false) }
     var showLogWeight by remember { mutableStateOf(false) }
+    var healthEventToEdit by remember { mutableStateOf<HealthEvent?>(null) }
+    var weightRecordToEdit by remember { mutableStateOf<WeightRecord?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
     var hasEmitted by remember { mutableStateOf(false) }
     var hasSeenAnimal by remember { mutableStateOf(false) }
     var hasNavigatedAwayByDelete by remember { mutableStateOf(false) }
@@ -207,12 +206,14 @@ fun AnimalDetailScreen(
                 HealthSection(
                     healthEvents = healthEvents,
                     onAddClick = { showAddHealthEvent = true },
+                    onEditClick = { healthEventToEdit = it },
                     onDeleteClick = { viewModel.deleteHealthEvent(it.id) }
                 )
                 Spacer(modifier = Modifier.height(24.dp))
                 WeightsSection(
                     weightRecords = weightRecords,
                     onAddClick = { showLogWeight = true },
+                    onEditClick = { weightRecordToEdit = it },
                     onDeleteClick = { viewModel.deleteWeightRecord(it.id) }
                 )
             } ?: run {
@@ -240,12 +241,34 @@ fun AnimalDetailScreen(
             }
         }
     }
-    if (showAddHealthEvent) {
+    if (showAddHealthEvent || healthEventToEdit != null) {
         AddHealthEventDialog(
-            onConfirm = { eventType, date, product, dosage, withdrawalEnd, notes ->
-                viewModel.addHealthEvent(eventType, date, product, dosage, withdrawalEnd, notes)
+            onConfirm = { eventId, eventType, date, product, dosage, withdrawalEnd, notes ->
+                val aid = animal?.id
+                if (eventId != null && aid != null) {
+                    viewModel.updateHealthEvent(
+                        HealthEvent(
+                            id = eventId,
+                            animalId = aid,
+                            eventType = eventType,
+                            date = date,
+                            product = product,
+                            dosage = dosage,
+                            withdrawalPeriodEnd = withdrawalEnd,
+                            notes = notes
+                        )
+                    )
+                } else {
+                    viewModel.addHealthEvent(eventType, date, product, dosage, withdrawalEnd, notes)
+                }
+                showAddHealthEvent = false
+                healthEventToEdit = null
             },
-            onDismiss = { showAddHealthEvent = false }
+            onDismiss = {
+                showAddHealthEvent = false
+                healthEventToEdit = null
+            },
+            existing = healthEventToEdit
         )
     }
     if (showTransferHerd) {
@@ -259,13 +282,32 @@ fun AnimalDetailScreen(
             onDismiss = { showTransferHerd = false }
         )
     }
-    if (showLogWeight) {
+    if (showLogWeight || weightRecordToEdit != null) {
         LogWeightDialog(
-            initialDate = LocalDate.now(),
-            onConfirm = { date, weightKg, note ->
-                viewModel.addWeightRecord(date, weightKg, note)
+            initialDate = weightRecordToEdit?.date ?: LocalDate.now(),
+            onConfirm = { recordId, date, weightKg, note ->
+                val aid = animal?.id
+                if (recordId != null && aid != null) {
+                    viewModel.updateWeightRecord(
+                        WeightRecord(
+                            id = recordId,
+                            animalId = aid,
+                            date = date,
+                            weightKg = weightKg,
+                            note = note
+                        )
+                    )
+                } else {
+                    viewModel.addWeightRecord(date, weightKg, note)
+                }
+                showLogWeight = false
+                weightRecordToEdit = null
             },
-            onDismiss = { showLogWeight = false }
+            onDismiss = {
+                showLogWeight = false
+                weightRecordToEdit = null
+            },
+            existing = weightRecordToEdit
         )
     }
 }
@@ -483,6 +525,7 @@ private fun BreedingSection(
 private fun HealthSection(
     healthEvents: List<HealthEvent>,
     onAddClick: () -> Unit,
+    onEditClick: (HealthEvent) -> Unit = {},
     onDeleteClick: (HealthEvent) -> Unit = {}
 ) {
     var eventToDelete by remember { mutableStateOf<HealthEvent?>(null) }
@@ -550,8 +593,13 @@ private fun HealthSection(
                         }
                         event.notes?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     }
-                    IconButton(onClick = { eventToDelete = event }) {
-                        Icon(Icons.Default.Delete, contentDescription = "Delete")
+                    Row {
+                        IconButton(onClick = { onEditClick(event) }) {
+                            Icon(Icons.Default.Edit, contentDescription = "Edit")
+                        }
+                        IconButton(onClick = { eventToDelete = event }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete")
+                        }
                     }
                 }
             }
@@ -563,6 +611,7 @@ private fun HealthSection(
 private fun WeightsSection(
     weightRecords: List<WeightRecord>,
     onAddClick: () -> Unit,
+    onEditClick: (WeightRecord) -> Unit = {},
     onDeleteClick: (WeightRecord) -> Unit = {}
 ) {
     var recordToDelete by remember { mutableStateOf<WeightRecord?>(null) }
@@ -625,8 +674,13 @@ private fun WeightsSection(
                         )
                         record.note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     }
-                    IconButton(onClick = { recordToDelete = record }) {
-                        Icon(Icons.Default.Delete, contentDescription = "Delete")
+                    Row {
+                        IconButton(onClick = { onEditClick(record) }) {
+                            Icon(Icons.Default.Edit, contentDescription = "Edit")
+                        }
+                        IconButton(onClick = { recordToDelete = record }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete")
+                        }
                     }
                 }
             }

@@ -2,7 +2,7 @@
  * Sample herd stats used by the stats API and mock data.
  * Single source of truth for the default/sample stats shape.
  */
-import type { HerdStats } from "./mockHerdData";
+import type { HerdStats } from "./herdStatsTypes";
 
 export const SAMPLE_STATS_DATA: HerdStats = {
   totalAnimals: 124,

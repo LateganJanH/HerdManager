@@ -80,6 +80,7 @@ export function DashboardSettings({ onBack }: { onBack: () => void }) {
         ...farm,
         contacts: farm.contacts?.length ? [...farm.contacts] : [{ name: "", phone: "", email: "" }],
         gestationDays: farm.gestationDays ?? 283,
+        weaningAgeDays: farm.weaningAgeDays ?? 200,
       });
       setShowEditFarm(true);
       setFarmSaveError(null);
@@ -144,6 +145,7 @@ export function DashboardSettings({ onBack }: { onBack: () => void }) {
                   <p className="mt-1 text-stone-500 dark:text-stone-400">
                     Calving alert: {farm.calvingAlertDays} days · Pregnancy check: {farm.pregnancyCheckDaysAfterBreeding} days after breeding
                     {farm.gestationDays != null && ` · Gestation: ${farm.gestationDays} days`}
+                    {farm.weaningAgeDays != null && ` · Weaning age: ${farm.weaningAgeDays} days`}
                   </p>
                 </div>
                 <button
@@ -269,6 +271,17 @@ export function DashboardSettings({ onBack }: { onBack: () => void }) {
                     max={320}
                     value={editFarm.gestationDays ?? 283}
                     onChange={(e) => setEditFarm({ ...editFarm, gestationDays: Math.max(250, Math.min(320, e.target.valueAsNumber || 283)) })}
+                    className="mt-1 block w-full rounded-button border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 px-3 py-2 text-stone-900 dark:text-stone-100"
+                  />
+                </label>
+                <label className="block text-sm text-stone-600 dark:text-stone-400">
+                  Weaning age (days) — alert when weaning weight is due (150–300, typical 200)
+                  <input
+                    type="number"
+                    min={150}
+                    max={300}
+                    value={editFarm.weaningAgeDays ?? 200}
+                    onChange={(e) => setEditFarm({ ...editFarm, weaningAgeDays: Math.max(150, Math.min(300, e.target.valueAsNumber || 200)) })}
                     className="mt-1 block w-full rounded-button border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 px-3 py-2 text-stone-900 dark:text-stone-100"
                   />
                 </label>

@@ -67,6 +67,7 @@ class BackupRepositoryImpl(
                 put("calvingAlertDays", settings.calvingAlertDays)
                 put("pregnancyCheckDaysAfterBreeding", settings.pregnancyCheckDaysAfterBreeding)
                 put("gestationDays", settings.gestationDays)
+                put("weaningAgeDays", settings.weaningAgeDays)
             })
             put("animals", JSONArray().apply {
                 animals.forEach { e ->
@@ -228,7 +229,9 @@ class BackupRepositoryImpl(
                     pregnancyCheckDaysAfterBreeding = o.optInt("pregnancyCheckDaysAfterBreeding", FarmSettings.DEFAULT_PREGNANCY_CHECK_DAYS)
                         .coerceIn(FarmSettings.PREGNANCY_CHECK_DAYS_MIN, FarmSettings.PREGNANCY_CHECK_DAYS_MAX),
                     gestationDays = o.optInt("gestationDays", FarmSettings.DEFAULT_GESTATION_DAYS)
-                        .coerceIn(FarmSettings.GESTATION_DAYS_MIN, FarmSettings.GESTATION_DAYS_MAX)
+                        .coerceIn(FarmSettings.GESTATION_DAYS_MIN, FarmSettings.GESTATION_DAYS_MAX),
+                    weaningAgeDays = o.optInt("weaningAgeDays", FarmSettings.DEFAULT_WEANING_AGE_DAYS)
+                        .coerceIn(FarmSettings.WEANING_AGE_DAYS_MIN, FarmSettings.WEANING_AGE_DAYS_MAX)
                 )
             )
         }

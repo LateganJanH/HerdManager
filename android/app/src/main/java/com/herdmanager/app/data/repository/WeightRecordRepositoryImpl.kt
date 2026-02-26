@@ -15,7 +15,14 @@ class WeightRecordRepositoryImpl(
     override fun observeWeightRecordsByAnimal(animalId: String): Flow<List<WeightRecord>> =
         dao.observeByAnimal(animalId).map { it.map { e -> e.toDomain() } }
 
+    override fun observeAllWeightRecords(): Flow<List<WeightRecord>> =
+        dao.observeAll().map { it.map { e -> e.toDomain() } }
+
     override suspend fun insertWeightRecord(record: WeightRecord) {
+        dao.insert(record.toEntity())
+    }
+
+    override suspend fun updateWeightRecord(record: WeightRecord) {
         dao.insert(record.toEntity())
     }
 

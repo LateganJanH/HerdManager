@@ -12,6 +12,9 @@ interface WeightRecordDao {
     @Query("SELECT * FROM weight_records WHERE animalId = :animalId ORDER BY date DESC")
     fun observeByAnimal(animalId: String): Flow<List<WeightRecordEntity>>
 
+    @Query("SELECT * FROM weight_records ORDER BY date DESC")
+    fun observeAll(): Flow<List<WeightRecordEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(record: WeightRecordEntity)
 

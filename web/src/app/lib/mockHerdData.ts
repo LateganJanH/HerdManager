@@ -3,21 +3,14 @@
  * Replace with API/Firebase when backend is connected.
  */
 
+import type { HerdStats } from "./herdStatsTypes";
 import { SAMPLE_STATS_DATA } from "./sampleStatsData";
 
-export interface HerdStats {
-  totalAnimals: number;
-  dueSoon: number;
-  calvingsThisYear: number;
-  breedingEventsThisYear: number;
-  openPregnant: number;
-  byStatus: Record<string, number>;
-  bySex: Record<string, number>;
-}
+export type { HerdStats };
 
 export interface AlertItem {
   id: string;
-  type: "calving" | "pregnancy_check" | "withdrawal";
+  type: "calving" | "pregnancy_check" | "withdrawal" | "weaning_weight";
   earTag: string;
   dueOrCheckDate: string;
   daysUntil: number;
@@ -49,6 +42,8 @@ export interface FarmProfile {
   pregnancyCheckDaysAfterBreeding: number;
   /** Gestation length in days (250–320); used for due date from service date. */
   gestationDays?: number;
+  /** Age in days at which weaning weight is typically recorded (150–300); used for weaning weight due alerts. */
+  weaningAgeDays?: number;
 }
 
 export interface AnimalProfile {
@@ -133,6 +128,7 @@ const SAMPLE_ALERTS: AlertItem[] = [
   { id: "2", type: "calving", earTag: "A012", dueOrCheckDate: "2026-03-05", daysUntil: 13 },
   { id: "3", type: "pregnancy_check", earTag: "A034", dueOrCheckDate: "2026-02-25", daysUntil: 5 },
   { id: "4", type: "withdrawal", earTag: "A001", dueOrCheckDate: "2026-03-10", daysUntil: 13, product: "Example antibiotic" },
+  { id: "5", type: "weaning_weight", earTag: "A056", dueOrCheckDate: "2026-03-08", daysUntil: 11 },
 ];
 
 const SAMPLE_ANIMALS: AnimalProfile[] = [

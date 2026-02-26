@@ -28,6 +28,7 @@ private val KEY_FARM_EMAIL = stringPreferencesKey("farm_email")
 private val KEY_CALVING_ALERT_DAYS = intPreferencesKey("calving_alert_days")
 private val KEY_PREGNANCY_CHECK_DAYS = intPreferencesKey("pregnancy_check_days")
 private val KEY_GESTATION_DAYS = intPreferencesKey("gestation_days")
+private val KEY_WEANING_AGE_DAYS = intPreferencesKey("weaning_age_days")
 
 class FarmSettingsRepositoryImpl @Inject constructor(
     @param:ApplicationContext private val context: Context
@@ -55,7 +56,8 @@ class FarmSettingsRepositoryImpl @Inject constructor(
                 calvingAlertDays = prefs[KEY_CALVING_ALERT_DAYS] ?: FarmSettings.DEFAULT_CALVING_ALERT_DAYS,
                 pregnancyCheckDaysAfterBreeding = prefs[KEY_PREGNANCY_CHECK_DAYS]
                     ?: FarmSettings.DEFAULT_PREGNANCY_CHECK_DAYS,
-                gestationDays = prefs[KEY_GESTATION_DAYS] ?: FarmSettings.DEFAULT_GESTATION_DAYS
+                gestationDays = prefs[KEY_GESTATION_DAYS] ?: FarmSettings.DEFAULT_GESTATION_DAYS,
+                weaningAgeDays = prefs[KEY_WEANING_AGE_DAYS] ?: FarmSettings.DEFAULT_WEANING_AGE_DAYS
             )
         }
 
@@ -67,6 +69,7 @@ class FarmSettingsRepositoryImpl @Inject constructor(
             prefs[KEY_CALVING_ALERT_DAYS] = settings.calvingAlertDaysClamped()
             prefs[KEY_PREGNANCY_CHECK_DAYS] = settings.pregnancyCheckDaysClamped()
             prefs[KEY_GESTATION_DAYS] = settings.gestationDaysClamped()
+            prefs[KEY_WEANING_AGE_DAYS] = settings.weaningAgeDaysClamped()
         }
     }
 

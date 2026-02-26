@@ -10,6 +10,7 @@ import com.herdmanager.app.domain.repository.BreedingEventRepository
 import com.herdmanager.app.domain.repository.CalvingEventRepository
 import com.herdmanager.app.domain.repository.FarmSettingsRepository
 import com.herdmanager.app.domain.repository.HealthEventRepository
+import com.herdmanager.app.domain.repository.WeightRecordRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -40,8 +41,17 @@ data class WithdrawalDueItem(
     val daysUntilDue: Long
 )
 
+data class WeaningWeightDueItem(
+    val animalId: String,
+    val earTag: String,
+    val weaningDueDate: LocalDate,
+    val daysUntilDue: Long
+)
+
 private const val PREGNANCY_CHECK_WINDOW_DAYS = 14L
 private const val WITHDRAWAL_WINDOW_DAYS = 14L
+private const val WEANING_ALERT_WINDOW_DAYS = 14L
+private const val WEANING_OVERDUE_DAYS = 30L
 
 @HiltViewModel
 class BreedingViewModel @Inject constructor(
@@ -49,7 +59,8 @@ class BreedingViewModel @Inject constructor(
     private val animalRepository: AnimalRepository,
     private val calvingEventRepository: CalvingEventRepository,
     private val farmSettingsRepository: FarmSettingsRepository,
-    private val healthEventRepository: HealthEventRepository
+    private val healthEventRepository: HealthEventRepository,
+    private val weightRecordRepository: WeightRecordRepository
 ) : ViewModel() {
 
     private val refreshTrigger = MutableStateFlow(0)
@@ -141,6 +152,41 @@ class BreedingViewModel @Inject constructor(
                 } else null
             }
             .sortedBy { it.endDate }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptyList()
+    )
+
+    val weaningWeightDue = combine(
+        refreshTrigger,
+        farmSettingsRepository.farmSettings(),
+        animalRepository.observeAnimalsByFarm(FarmSettings.DEFAULT_FARM_ID),
+        weightRecordRepository.observeAllWeightRecords()
+    ) { _, settings, animals, allWeights ->
+        val weaningDays = settings.weaningAgeDaysClamped().toLong()
+        val now = LocalDate.now()
+        val windowStart = now.minusDays(WEANING_OVERDUE_DAYS)
+        val windowEnd = now.plusDays(WEANING_ALERT_WINDOW_DAYS)
+        val weightsByAnimal = allWeights.groupBy { it.animalId }
+        animals
+            .mapNotNull { animal ->
+                val dob = animal.dateOfBirth
+                val weaningDue = dob.plusDays(weaningDays)
+                if (weaningDue in windowStart..windowEnd) {
+                    val weights = weightsByAnimal[animal.id].orEmpty()
+                    val hasWeightInWindow = weights.any { it.date >= weaningDue.minusDays(WEANING_ALERT_WINDOW_DAYS) }
+                    if (!hasWeightInWindow) {
+                        WeaningWeightDueItem(
+                            animalId = animal.id,
+                            earTag = animal.earTagNumber,
+                            weaningDueDate = weaningDue,
+                            daysUntilDue = ChronoUnit.DAYS.between(now, weaningDue)
+                        )
+                    } else null
+                } else null
+            }
+            .sortedBy { it.weaningDueDate }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),

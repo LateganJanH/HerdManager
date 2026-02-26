@@ -11,20 +11,23 @@ import { APP_NAME } from "../lib/version";
 
 const DUE_SOON_PREVIEW_MAX = 3;
 
-function dueSoonLabel(type: "calving" | "pregnancy_check" | "withdrawal", daysUntil: number): string {
+function dueSoonLabel(type: "calving" | "pregnancy_check" | "withdrawal" | "weaning_weight", daysUntil: number): string {
   if (daysUntil < 0) {
     if (type === "calving") return `Calving overdue by ${-daysUntil} days`;
     if (type === "pregnancy_check") return `Pregnancy check overdue by ${-daysUntil} days`;
-    return `Withdrawal overdue by ${-daysUntil} days`;
+    if (type === "withdrawal") return `Withdrawal overdue by ${-daysUntil} days`;
+    return `Weaning weight overdue by ${-daysUntil} days`;
   }
   if (daysUntil === 0) {
     if (type === "calving") return "Calving due today";
     if (type === "pregnancy_check") return "Pregnancy check due today";
-    return "Withdrawal ends today";
+    if (type === "withdrawal") return "Withdrawal ends today";
+    return "Weaning weight due today";
   }
   if (type === "calving") return `Calving in ${daysUntil} days`;
   if (type === "pregnancy_check") return `Pregnancy check in ${daysUntil} days`;
-  return `Withdrawal ends in ${daysUntil} days`;
+  if (type === "withdrawal") return `Withdrawal ends in ${daysUntil} days`;
+  return `Weaning weight in ${daysUntil} days`;
 }
 
 export function DashboardHome() {
@@ -129,7 +132,7 @@ export function DashboardHome() {
                 <p className="mt-1 text-2xl font-semibold text-accent-alert">
                   {dueSoonCount > 0 ? dueSoonCount : "—"}
                 </p>
-                <p className="text-sm text-stone-600 dark:text-stone-300">Calving, checks & withdrawal</p>
+                <p className="text-sm text-stone-600 dark:text-stone-300">Calving, checks, withdrawal & weaning</p>
                 {dueSoonCount > 0 && (
                   <>
                     {dueSoonPreview.length > 0 && (

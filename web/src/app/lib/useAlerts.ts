@@ -55,6 +55,8 @@ export function useAlerts(): {
         firestore.onSnapshot(firestore.collection(d, "users", uid, "breeding_events"), invalidate),
         firestore.onSnapshot(firestore.collection(d, "users", uid, "calving_events"), invalidate),
         firestore.onSnapshot(firestore.collection(d, "users", uid, "health_events"), invalidate),
+        firestore.onSnapshot(firestore.collection(d, "users", uid, "weight_records"), invalidate),
+        firestore.onSnapshot(firestore.doc(d, "users", uid, "settings", "farm"), invalidate),
       ];
     })();
     return () => {

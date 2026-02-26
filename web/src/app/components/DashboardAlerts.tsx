@@ -9,12 +9,18 @@ import { useHerdStats } from "../lib/useHerdStats";
 import { useAlerts } from "../lib/useAlerts";
 import type { AlertItem } from "../lib/mockHerdData";
 
-type AlertFilter = "all" | "calving" | "pregnancy_check" | "withdrawal";
+type AlertFilter = "all" | "calving" | "pregnancy_check" | "withdrawal" | "weaning_weight";
 
 function downloadAlertsCsv(alerts: AlertItem[]) {
   const header = ["Ear tag", "Type", "Due / check date", "Days until", "Product"];
   const typeLabel = (a: AlertItem) =>
-    a.type === "calving" ? "Calving" : a.type === "pregnancy_check" ? "Pregnancy check" : "Withdrawal ends";
+    a.type === "calving"
+      ? "Calving"
+      : a.type === "pregnancy_check"
+        ? "Pregnancy check"
+        : a.type === "withdrawal"
+          ? "Withdrawal ends"
+          : "Weaning weight due";
   const rows = alerts.map((a) => [
     a.earTag,
     typeLabel(a),
@@ -61,7 +67,7 @@ export function DashboardAlerts() {
         Alerts
       </h2>
           <p className="text-stone-600 dark:text-stone-300 text-base">
-        Calving due dates, pregnancy check reminders, and withdrawal-period end dates. Items due soon are highlighted.
+        Calving due dates, pregnancy check reminders, withdrawal-period end dates, and weaning weight due. Items due soon are highlighted.
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-sm text-stone-500 dark:text-stone-400">
@@ -102,7 +108,7 @@ export function DashboardAlerts() {
 
       {rawAlerts.length > 0 && (
         <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by type">
-          {(["all", "calving", "pregnancy_check", "withdrawal"] as const).map((value) => (
+          {(["all", "calving", "pregnancy_check", "withdrawal", "weaning_weight"] as const).map((value) => (
             <button
               key={value}
               type="button"
@@ -113,7 +119,7 @@ export function DashboardAlerts() {
                   : "border-stone-300 dark:border-stone-600 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700"
               }`}
             >
-              {value === "all" ? "All" : value === "calving" ? "Calving" : value === "pregnancy_check" ? "Pregnancy check" : "Withdrawal"}
+              {value === "all" ? "All" : value === "calving" ? "Calving" : value === "pregnancy_check" ? "Pregnancy check" : value === "withdrawal" ? "Withdrawal" : "Weaning weight"}
             </button>
           ))}
         </div>
@@ -136,7 +142,7 @@ export function DashboardAlerts() {
                     {alert.earTag}
                   </span>
                   <span className="ml-2 text-sm text-stone-500 dark:text-stone-400">
-                    {alert.type === "calving" ? "Calving due" : alert.type === "pregnancy_check" ? "Pregnancy check due" : "Withdrawal ends"}
+                    {alert.type === "calving" ? "Calving due" : alert.type === "pregnancy_check" ? "Pregnancy check due" : alert.type === "withdrawal" ? "Withdrawal ends" : "Weaning weight due"}
                   </span>
                 </div>
                 <span className="text-sm font-medium text-stone-600 dark:text-stone-300">
@@ -156,8 +162,8 @@ export function DashboardAlerts() {
         <div className="rounded-card bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-600 p-6 text-center">
           <p className="text-stone-600 dark:text-stone-300 text-base">
             {rawAlerts.length === 0
-              ? "No alerts right now. Connect the app to sync calving, pregnancy check, and withdrawal due dates."
-              : `No ${filter === "calving" ? "calving" : filter === "pregnancy_check" ? "pregnancy check" : "withdrawal"} alerts.`}
+              ? "No alerts right now. Connect the app to sync calving, pregnancy check, withdrawal, and weaning weight due dates."
+              : `No ${filter === "calving" ? "calving" : filter === "pregnancy_check" ? "pregnancy check" : filter === "withdrawal" ? "withdrawal" : "weaning weight"} alerts.`}
           </p>
           {rawAlerts.length === 0 ? (
             <p className="mt-3">

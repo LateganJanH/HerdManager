@@ -17,17 +17,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.herdmanager.app.domain.model.WeightRecord
 import java.time.LocalDate
 
 @Composable
 fun LogWeightDialog(
     initialDate: LocalDate,
-    onConfirm: (LocalDate, Double, String?) -> Unit,
-    onDismiss: () -> Unit
+    onConfirm: (recordId: String?, LocalDate, Double, String?) -> Unit,
+    onDismiss: () -> Unit,
+    existing: WeightRecord? = null
 ) {
-    var date by remember { mutableStateOf(initialDate) }
-    var weightStr by remember { mutableStateOf("") }
-    var note by remember { mutableStateOf("") }
+    var date by remember(existing) { mutableStateOf(existing?.date ?: initialDate) }
+    var weightStr by remember(existing) { mutableStateOf(existing?.weightKg?.toString() ?: "") }
+    var note by remember(existing) { mutableStateOf(existing?.note ?: "") }
     var showDatePicker by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -41,7 +43,7 @@ fun LogWeightDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Log weight") },
+        title = { Text(if (existing != null) "Edit weight" else "Log weight") },
         text = {
             Column(modifier = Modifier.widthIn(min = 280.dp)) {
                 Button(
@@ -84,13 +86,14 @@ fun LogWeightDialog(
                         trimmed.toDoubleOrNull() == null -> error = "Enter a valid number"
                         trimmed.toDoubleOrNull()!! <= 0 -> error = "Weight must be greater than 0"
                         else -> {
-                            onConfirm(date, trimmed.toDouble(), note.takeIf { it.isNotBlank() })
+                            val weightKg = trimmed.toDouble()
+                            onConfirm(existing?.id, date, weightKg, note.takeIf { it.isNotBlank() })
                         }
                     }
                 },
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Save")
+                Text(if (existing != null) "Update" else "Save")
             }
         },
         dismissButton = {

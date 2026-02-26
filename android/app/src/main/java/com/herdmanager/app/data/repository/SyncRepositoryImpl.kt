@@ -134,6 +134,7 @@ class SyncRepositoryImpl @Inject constructor(
             val calving = (data["calvingAlertDays"] as? Number)?.toInt() ?: FarmSettings.DEFAULT_CALVING_ALERT_DAYS
             val pregnancy = (data["pregnancyCheckDaysAfterBreeding"] as? Number)?.toInt() ?: FarmSettings.DEFAULT_PREGNANCY_CHECK_DAYS
             val gestation = (data["gestationDays"] as? Number)?.toInt() ?: FarmSettings.DEFAULT_GESTATION_DAYS
+            val weaning = (data["weaningAgeDays"] as? Number)?.toInt() ?: FarmSettings.DEFAULT_WEANING_AGE_DAYS
             val contacts = parseContactsFromFirestore(data["contacts"]).ifEmpty {
                 val p = data["contactPhone"] as? String ?: ""
                 val e = data["contactEmail"] as? String ?: ""
@@ -147,7 +148,8 @@ class SyncRepositoryImpl @Inject constructor(
                     contacts = contacts,
                     calvingAlertDays = calving.coerceIn(FarmSettings.CALVING_ALERT_DAYS_MIN, FarmSettings.CALVING_ALERT_DAYS_MAX),
                     pregnancyCheckDaysAfterBreeding = pregnancy.coerceIn(FarmSettings.PREGNANCY_CHECK_DAYS_MIN, FarmSettings.PREGNANCY_CHECK_DAYS_MAX),
-                    gestationDays = gestation.coerceIn(FarmSettings.GESTATION_DAYS_MIN, FarmSettings.GESTATION_DAYS_MAX)
+                    gestationDays = gestation.coerceIn(FarmSettings.GESTATION_DAYS_MIN, FarmSettings.GESTATION_DAYS_MAX),
+                    weaningAgeDays = weaning.coerceIn(FarmSettings.WEANING_AGE_DAYS_MIN, FarmSettings.WEANING_AGE_DAYS_MAX)
                 )
             )
         }
@@ -184,6 +186,7 @@ class SyncRepositoryImpl @Inject constructor(
                 "calvingAlertDays" to settings.calvingAlertDays,
                 "pregnancyCheckDaysAfterBreeding" to settings.pregnancyCheckDaysAfterBreeding,
                 "gestationDays" to settings.gestationDays,
+                "weaningAgeDays" to settings.weaningAgeDays,
                 "updatedAt" to System.currentTimeMillis()
             )
         ).await()
@@ -405,6 +408,7 @@ class SyncRepositoryImpl @Inject constructor(
             val calving = (data["calvingAlertDays"] as? Number)?.toInt() ?: FarmSettings.DEFAULT_CALVING_ALERT_DAYS
             val pregnancy = (data["pregnancyCheckDaysAfterBreeding"] as? Number)?.toInt() ?: FarmSettings.DEFAULT_PREGNANCY_CHECK_DAYS
             val gestation = (data["gestationDays"] as? Number)?.toInt() ?: FarmSettings.DEFAULT_GESTATION_DAYS
+            val weaning = (data["weaningAgeDays"] as? Number)?.toInt() ?: FarmSettings.DEFAULT_WEANING_AGE_DAYS
             val contacts = parseContactsFromFirestore(data["contacts"]).ifEmpty {
                 val p = data["contactPhone"] as? String ?: ""
                 val e = data["contactEmail"] as? String ?: ""
@@ -418,7 +422,8 @@ class SyncRepositoryImpl @Inject constructor(
                     contacts = contacts,
                     calvingAlertDays = calving.coerceIn(FarmSettings.CALVING_ALERT_DAYS_MIN, FarmSettings.CALVING_ALERT_DAYS_MAX),
                     pregnancyCheckDaysAfterBreeding = pregnancy.coerceIn(FarmSettings.PREGNANCY_CHECK_DAYS_MIN, FarmSettings.PREGNANCY_CHECK_DAYS_MAX),
-                    gestationDays = gestation.coerceIn(FarmSettings.GESTATION_DAYS_MIN, FarmSettings.GESTATION_DAYS_MAX)
+                    gestationDays = gestation.coerceIn(FarmSettings.GESTATION_DAYS_MIN, FarmSettings.GESTATION_DAYS_MAX),
+                    weaningAgeDays = weaning.coerceIn(FarmSettings.WEANING_AGE_DAYS_MIN, FarmSettings.WEANING_AGE_DAYS_MAX)
                 )
             )
         }

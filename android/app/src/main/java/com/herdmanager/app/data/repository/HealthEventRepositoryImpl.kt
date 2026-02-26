@@ -23,6 +23,10 @@ class HealthEventRepositoryImpl(
         dao.insert(event.toEntity())
     }
 
+    override suspend fun updateHealthEvent(event: HealthEvent) {
+        dao.insert(event.toEntity())
+    }
+
     override suspend fun deleteHealthEvent(id: String) {
         dao.deleteById(id)
     }

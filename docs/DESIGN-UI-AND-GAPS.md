@@ -56,24 +56,18 @@
 
 | Area | Gap | Priority |
 |------|-----|----------|
-| **Weight** | Weight & weaning section on animal detail; log weight (date, kg, note) | Done |
+| **Weight** | Weight & weaning section on animal detail; log weight (date, kg, note); **edit/update** weight and health records (CRUD). | Done |
 | **Milk** | No milk production (dairy) | Medium if targeting dairy |
 | **Reports** | In-app: herd summary + breeding/calving metrics; CSV export; PDF herd export (Android); PDF report (web Analytics). No Excel yet | Medium |
 | **Multi-device sync** | Firestore sync; multiple devices per account | **Done** |
 | **Auth** | Email/password (Firebase); single user per device | **Done** |
 | **Pedigree** | ~~No sire/dam or family tree~~ **Phase 2 done** | Sire/dam on animal (Android: Animal detail shows Sire/Dam; Edit animal has Pedigree section to set sire/dam; new calves get damId). Web: Profiles animal detail shows Sire/Dam when synced. Firestore and API schema include sireId/damId. |
 | **Tasks / reminders** | Only “due soon” banners; no task list or reminders | Medium |
-| **Expenses / income** | No financial tracking | Medium (benchmarks have it) |
-| **Offline indicator** | No explicit “saved offline” or sync status | Low |
-| **Backup / restore** | Export JSON + restore from backup (Settings) | Done |
-| **Sire on breeding** | Optional bull/sire in Record breeding dialog (multi-select) | Done |
-| **Configurable gestation** | Farm-level gestation days (250–320, default 283) in Settings; due dates use it | Done |
-| **Withdrawal alerts** | Web Alerts tab and Android Alerts screen show withdrawal-period end dates (health_events, next 14 days); web and Android Home and Android Herd list “due soon” include withdrawal; filter and CSV (web) include Withdrawal | Done |
 
 ### Precision livestock farming (PLF)
 
 - **Individual records:** Strong (animal-level profile, events).
-- **Alerts:** Calving, pregnancy check, and withdrawal-period end on web and Android (from health_events with withdrawalPeriodEnd). No weight/due-weigh reminders yet.
+- **Alerts:** Calving, pregnancy check, and withdrawal-period end on web and Android (from health_events with withdrawalPeriodEnd). **Weaning weight due** on Android: Alerts tab and Home “due soon” show calves whose weaning date (DOB + farm weaning age) is in the next 14 days or up to 30 days overdue, with no weight recorded in the window; farm setting “Weaning age (days)” 150–300 (default 200).
 - **Performance metrics:** No growth rate, weaning weight, or indexes.
 - **Sensors / EID:** No RFID/EID reader integration; ear tag is manual.
 - **Data export:** CSV and PDF (herd list on Android; Analytics report on web). API spec (OpenAPI 3) served at `GET /api/spec` and linked in web Settings → About for third-party integration.
@@ -94,7 +88,7 @@
 
 5. **Phase 2**  
    ~~**Pedigree UI**~~ **Done:** Sire and dam on animal (optional). Android: Animal detail shows Sire/Dam; Edit animal has Pedigree (optional) to set sire/dam; new calves get damId. Web: Profiles animal detail shows Sire/Dam when from Firestore. Data model: sireId/damId on Animal; sync, backup, OpenAPI and shared schema updated.  
-   Health/weight reminders (health events already in app), optional milk (dairy), data viz.
+   **Weaning weight reminders:** Done on Android (Alerts + Home due soon; farm setting weaning age 150–300 days). Optional milk (dairy), more data viz later.
 
 6. **Later**  
    Multi-user, finances, EID/sensors.

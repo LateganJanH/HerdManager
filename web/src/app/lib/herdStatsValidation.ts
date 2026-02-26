@@ -1,4 +1,4 @@
-import type { HerdStats } from "./mockHerdData";
+import type { HerdStats } from "./herdStatsTypes";
 
 /**
  * Type guard for API herd stats. Use when validating /api/stats response.

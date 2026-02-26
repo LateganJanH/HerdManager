@@ -63,6 +63,7 @@ export function useFarmSettings(): {
         const pregnancy =
           (data.pregnancyCheckDaysAfterBreeding as number | undefined) ?? 28;
         const gestation = (data.gestationDays as number | undefined) ?? 283;
+        const weaning = (data.weaningAgeDays as number | undefined) ?? 200;
         const contacts = parseContactsFromFirestore(data.contacts, data.contactPhone, data.contactEmail);
         const farm: FarmProfile = {
           id: (data.id as string) ?? "farm",
@@ -72,6 +73,7 @@ export function useFarmSettings(): {
           calvingAlertDays: Math.max(1, Math.min(90, calving)),
           pregnancyCheckDaysAfterBreeding: Math.max(14, Math.min(60, pregnancy)),
           gestationDays: Math.max(250, Math.min(320, gestation)),
+          weaningAgeDays: Math.max(150, Math.min(300, weaning)),
         };
         queryClient.setQueryData([FARM_SETTINGS_QUERY_KEY, uid], farm);
       });

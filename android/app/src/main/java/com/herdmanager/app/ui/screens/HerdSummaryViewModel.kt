@@ -12,6 +12,7 @@ import com.herdmanager.app.domain.repository.CalvingEventRepository
 import com.herdmanager.app.domain.repository.FarmSettingsRepository
 import com.herdmanager.app.domain.repository.HealthEventRepository
 import com.herdmanager.app.domain.repository.SyncRepository
+import com.herdmanager.app.domain.repository.WeightRecordRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,6 +31,8 @@ import java.util.Locale
 
 private const val PREGNANCY_CHECK_WINDOW_DAYS = 14L
 private const val WITHDRAWAL_WINDOW_DAYS = 14L
+private const val WEANING_ALERT_WINDOW_DAYS = 14L
+private const val WEANING_OVERDUE_DAYS = 30L
 private const val DUE_SOON_PREVIEW_MAX = 3
 
 private fun defaultHerdSummary() = HerdSummary(
@@ -68,6 +71,7 @@ class HerdSummaryViewModel @Inject constructor(
     private val calvingEventRepository: CalvingEventRepository,
     private val farmSettingsRepository: FarmSettingsRepository,
     private val healthEventRepository: HealthEventRepository,
+    private val weightRecordRepository: WeightRecordRepository,
     private val syncRepository: SyncRepository
 ) : ViewModel() {
 
@@ -151,7 +155,17 @@ class HerdSummaryViewModel @Inject constructor(
                 }
                 val healthEvents = healthEventRepository.observeAllHealthEvents().first()
                 val withdrawalDueCount = healthEvents.count { it.withdrawalPeriodEnd != null && it.withdrawalPeriodEnd!! in now..now.plusDays(WITHDRAWAL_WINDOW_DAYS) }
-                val dueSoonCount = calvingDueCount + pregnancyCheckDueCount + withdrawalDueCount
+                val weaningDays = settings.weaningAgeDaysClamped().toLong()
+                val windowStart = now.minusDays(WEANING_OVERDUE_DAYS)
+                val windowEnd = now.plusDays(WEANING_ALERT_WINDOW_DAYS)
+                val allWeights = weightRecordRepository.observeAllWeightRecords().first()
+                val weightsByAnimal = allWeights.groupBy { it.animalId }
+                val weaningDueCount = animals.count { animal ->
+                    val weaningDue = animal.dateOfBirth.plusDays(weaningDays)
+                    weaningDue in windowStart..windowEnd &&
+                        !weightsByAnimal[animal.id].orEmpty().any { it.date >= weaningDue.minusDays(WEANING_ALERT_WINDOW_DAYS) }
+                }
+                val dueSoonCount = calvingDueCount + pregnancyCheckDueCount + withdrawalDueCount + weaningDueCount
 
                 val animalMap = animals.associateBy { it.id }
                 val calvingPreview = breedingEvents
@@ -212,7 +226,27 @@ class HerdSummaryViewModel @Inject constructor(
                             )
                         } else null
                     }
-                val dueSoonPreview = (calvingPreview + pregnancyPreview + withdrawalPreview)
+                val weaningPreview = animals
+                    .mapNotNull { animal ->
+                        val weaningDue = animal.dateOfBirth.plusDays(weaningDays)
+                        if (weaningDue in windowStart..windowEnd) {
+                            val hasWeight = weightsByAnimal[animal.id].orEmpty().any { it.date >= weaningDue.minusDays(WEANING_ALERT_WINDOW_DAYS) }
+                            if (!hasWeight) {
+                                val days = ChronoUnit.DAYS.between(now, weaningDue)
+                                val label = when {
+                                    days < 0 -> "Weaning weight overdue by ${-days} days"
+                                    days == 0L -> "Weaning weight due today"
+                                    else -> "Weaning weight in $days days"
+                                }
+                                weaningDue to DueSoonPreviewItem(
+                                    damEarTag = animal.earTagNumber,
+                                    label = label,
+                                    animalId = animal.id
+                                )
+                            } else null
+                        } else null
+                    }
+                val dueSoonPreview = (calvingPreview + pregnancyPreview + withdrawalPreview + weaningPreview)
                     .sortedBy { it.first }
                     .take(DUE_SOON_PREVIEW_MAX)
                     .map { it.second }
