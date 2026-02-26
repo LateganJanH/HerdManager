@@ -18,11 +18,13 @@ const nextConfig: NextConfig = {
     // Prevent Playwright (E2E devDependency) from being pulled into client bundle
     // (e.g. by pnpm’s node_modules layout or Next.js context).
     if (!isServer) {
+      const path = require("path");
+      const emptyPath = path.join(__dirname, "src", "app", "lib", "emptyModule.js");
       config.resolve.alias = {
         ...config.resolve.alias,
-        "playwright": false,
-        "playwright-core": false,
-        "@playwright/test": false,
+        "playwright": emptyPath,
+        "playwright-core": emptyPath,
+        "@playwright/test": emptyPath,
       };
     }
     return config;
