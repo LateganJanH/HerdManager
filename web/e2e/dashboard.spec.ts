@@ -143,6 +143,22 @@ test.describe("Dashboard", () => {
     await expect(page.getByRole("button", { name: /Export report \(PDF\)/ })).toBeVisible();
   });
 
+  test("Analytics tab shows By category when stats have byCategory", async ({ page }) => {
+    await page.goto("/?tab=analytics", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { level: 2, name: "Analytics" })).toBeVisible({ timeout: 15_000 });
+    const byCategoryRegion = page.getByRole("region", { name: "Herd by category breakdown" });
+    const byStatusRegion = page.getByRole("region", { name: "Status and sex breakdown chart" });
+    await Promise.race([
+      byCategoryRegion.waitFor({ state: "visible", timeout: 10_000 }),
+      byStatusRegion.waitFor({ state: "visible", timeout: 10_000 }),
+    ]);
+    if (await byCategoryRegion.isVisible()) {
+      await expect(byCategoryRegion.getByRole("heading", { name: "By category" })).toBeVisible();
+      await expect(byCategoryRegion.getByText("Calves", { exact: true })).toBeVisible();
+      await expect(byCategoryRegion.getByText("Cows", { exact: true })).toBeVisible();
+    }
+  });
+
   test("Alerts tab shows filters including Withdrawal", async ({ page }) => {
     await page.goto("/?tab=alerts", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { level: 2, name: "Alerts" })).toBeVisible({ timeout: 15_000 });
