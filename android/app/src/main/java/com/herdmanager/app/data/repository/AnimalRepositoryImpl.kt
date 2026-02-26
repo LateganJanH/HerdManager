@@ -37,7 +37,14 @@ class AnimalRepositoryImpl(
         if (existing != null && existing.id != animal.id) {
             throw IllegalArgumentException("Ear tag already exists")
         }
-        dao.insert(animal.toEntity())
+        val existingEntity = dao.getById(animal.id)
+        val now = System.currentTimeMillis()
+        val entity = if (existingEntity != null) {
+            animal.toEntity(createdAt = existingEntity.createdAt, updatedAt = now)
+        } else {
+            animal.toEntity(createdAt = now, updatedAt = now)
+        }
+        dao.insert(entity)
     }
 
     override suspend fun deleteAnimal(id: String) {
@@ -64,7 +71,10 @@ private fun AnimalEntity.toDomain() = Animal(
     damId = damId.takeIf { !it.isNullOrBlank() }
 )
 
-private fun Animal.toEntity() = AnimalEntity(
+private fun Animal.toEntity(
+    createdAt: Long = System.currentTimeMillis(),
+    updatedAt: Long = System.currentTimeMillis()
+) = AnimalEntity(
     id = id,
     earTagNumber = earTagNumber,
     rfid = rfid,
@@ -81,6 +91,6 @@ private fun Animal.toEntity() = AnimalEntity(
     status = status.name,
     sireId = sireId.takeIf { !it.isNullOrBlank() },
     damId = damId.takeIf { !it.isNullOrBlank() },
-    createdAt = System.currentTimeMillis(),
-    updatedAt = System.currentTimeMillis()
+    createdAt = createdAt,
+    updatedAt = updatedAt
 )

@@ -68,7 +68,10 @@ Prioritized list of development steps after MVP closure (auth, sync, alerts, the
 - **Android – Weight & health log CRUD:** Full CRUD for weight and health logs on animal detail: edit (pencil) in addition to add/delete; LogWeightDialog and AddHealthEventDialog support an optional `existing` record; ViewModels expose `updateWeightRecord` and `updateHealthEvent`; sync and backup include updates.
 - **Android – Calving → herd:** When recording calving and creating a new calf, the calf is auto-assigned to the dam’s current herd; if the dam has a herd, `assignAnimalToHerd` is called for the calf after insert.
 - **Android – Profiles list scroll:** Herd list (Profiles) uses `Modifier.weight(1f)` on the list block (loading skeleton, empty state wrapper, and PullToRefreshBox around LazyColumn) so the list gets a bounded height and scrolls correctly when many animals are present.
+- **Android – Castration sync & CASTRATION health event:** Animal `isCastrated` is always uploaded as a boolean so it syncs reliably; download parses it safely. Health event type **CASTRATION** added; logging a castration event for a male sets the animal’s castrated flag; health event type parsing is defensive for unknown values from Firestore.
 - **Web – Build stability:** Circular dependency between `mockHerdData` and `sampleStatsData` removed by introducing `herdStatsTypes.ts` (shared `HerdStats` type); avoids "Cannot read properties of undefined (reading 'call')" at runtime. If build fails with ENOENT on `.nft.json`, delete `.next` and run `pnpm run build` again.
+- **Web – Chunk errors:** Playwright excluded from client bundle (next.config) to fix ChunkLoadError; `global-error.tsx` and `error.tsx` detect chunk load/timeout errors and show a “Refresh the page” CTA.
+- **Web – Analytics by category:** “By category” section (Calves, Heifers, Cows, Bulls, Steers) on Analytics tab; sample and Firestore stats include `byCategory`; CSV/PDF export includes category breakdown.
 
 ---
 
