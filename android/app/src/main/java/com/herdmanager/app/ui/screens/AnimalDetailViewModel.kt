@@ -324,6 +324,12 @@ class AnimalDetailViewModel @Inject constructor(
                             notes = notes?.takeIf { it.isNotBlank() }
                         )
                     )
+                    if (eventType == HealthEventType.CASTRATION) {
+                        val a = animalRepository.getAnimalById(animalId)
+                        if (a?.sex == Sex.MALE) {
+                            animalRepository.insertAnimal(a.copy(isCastrated = true))
+                        }
+                    }
                     AnimalDetailOperationResult.Success(AnimalDetailOperation.HEALTH, "Health event logged")
                 }.getOrElse {
                     AnimalDetailOperationResult.Error(AnimalDetailOperation.HEALTH, it.message ?: "Could not add health event")

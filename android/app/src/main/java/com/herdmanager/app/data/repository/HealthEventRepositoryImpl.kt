@@ -35,7 +35,7 @@ class HealthEventRepositoryImpl(
 private fun HealthEventEntity.toDomain() = HealthEvent(
     id = id,
     animalId = animalId,
-    eventType = HealthEventType.valueOf(eventType),
+    eventType = HealthEventType.entries.find { it.name == eventType } ?: HealthEventType.VACCINATION,
     date = LocalDate.ofEpochDay(date),
     product = product,
     dosage = dosage,

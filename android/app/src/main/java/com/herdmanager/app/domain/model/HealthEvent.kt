@@ -17,5 +17,6 @@ enum class HealthEventType {
     VACCINATION,
     TREATMENT,
     DISEASE,
-    WITHDRAWAL
+    WITHDRAWAL,
+    CASTRATION
 }

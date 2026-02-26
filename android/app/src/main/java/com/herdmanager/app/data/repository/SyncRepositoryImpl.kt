@@ -209,7 +209,7 @@ class SyncRepositoryImpl @Inject constructor(
                     "currentHerdId" to e.currentHerdId,
                     "coatColor" to e.coatColor,
                     "hornStatus" to e.hornStatus,
-                    "isCastrated" to e.isCastrated,
+                    "isCastrated" to (e.isCastrated == true),
                     "avatarPhotoId" to e.avatarPhotoId,
                     "status" to e.status,
                     "sireId" to e.sireId,
@@ -477,7 +477,10 @@ class SyncRepositoryImpl @Inject constructor(
                         currentHerdId = (d["currentHerdId"] as? String).takeIf { !it.isNullOrBlank() },
                         coatColor = (d["coatColor"] as? String).takeIf { !it.isNullOrBlank() },
                         hornStatus = (d["hornStatus"] as? String).takeIf { !it.isNullOrBlank() },
-                        isCastrated = d["isCastrated"] as? Boolean,
+                        isCastrated = when (val v = d["isCastrated"]) {
+                            is Boolean -> v
+                            else -> null
+                        },
                         avatarPhotoId = (d["avatarPhotoId"] as? String).takeIf { !it.isNullOrBlank() },
                         status = d["status"] as? String ?: "ACTIVE",
                         sireId = (d["sireId"] as? String).takeIf { !it.isNullOrBlank() },
