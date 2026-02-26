@@ -31,7 +31,7 @@ import com.herdmanager.app.data.local.entity.WeightRecordEntity
         HerdEntity::class,
         HerdAssignmentEntity::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

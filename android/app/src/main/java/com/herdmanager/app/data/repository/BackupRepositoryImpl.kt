@@ -85,6 +85,8 @@ class BackupRepositoryImpl(
                         e.isCastrated?.let { put("isCastrated", it) }
                         e.avatarPhotoId?.let { put("avatarPhotoId", it) }
                         put("status", e.status)
+                        e.sireId?.let { put("sireId", it) }
+                        e.damId?.let { put("damId", it) }
                     })
                 }
             })
@@ -251,6 +253,8 @@ class BackupRepositoryImpl(
                         isCastrated = if (o.has("isCastrated")) o.getBoolean("isCastrated") else null,
                         avatarPhotoId = o.optString("avatarPhotoId").takeIf { it.isNotEmpty() },
                         status = o.getString("status"),
+                        sireId = o.optString("sireId").takeIf { it.isNotEmpty() },
+                        damId = o.optString("damId").takeIf { it.isNotEmpty() },
                         createdAt = now,
                         updatedAt = now,
                         syncStatus = "PENDING"

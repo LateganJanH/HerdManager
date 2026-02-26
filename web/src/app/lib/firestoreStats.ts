@@ -330,6 +330,22 @@ export async function fetchAnimalDetailFromFirestore(
   if (!animalSnap.exists()) return null;
   const data = animalSnap.data()!;
 
+  const sireId = (data.sireId as string) || undefined;
+  const damId = (data.damId as string) || undefined;
+  let sireEarTag: string | undefined;
+  let damEarTag: string | undefined;
+  if (sireId || damId) {
+    const animalsRef = firestore.collection(d, "users", uid, "animals");
+    if (sireId) {
+      const sireSnap = await firestore.getDoc(firestore.doc(animalsRef, sireId));
+      if (sireSnap.exists()) sireEarTag = (sireSnap.data()?.earTagNumber as string) ?? undefined;
+    }
+    if (damId) {
+      const damSnap = await firestore.getDoc(firestore.doc(animalsRef, damId));
+      if (damSnap.exists()) damEarTag = (damSnap.data()?.earTagNumber as string) ?? undefined;
+    }
+  }
+
   const herdId = (data.currentHerdId as string) ?? undefined;
   const herds = new Map<string, string>();
   herdsSnap.docs.forEach((doc) => {
@@ -395,6 +411,10 @@ export async function fetchAnimalDetailFromFirestore(
     breed: (data.breed as string) || undefined,
     dateOfBirth: storedDateToYyyyMmDd(dateOfBirth),
     herdName,
+    sireId,
+    damId,
+    sireEarTag,
+    damEarTag,
     breedingEvents,
     calvingEvents,
     healthEvents,

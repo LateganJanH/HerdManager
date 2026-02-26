@@ -24,6 +24,8 @@ data class AnimalEntity(
     val isCastrated: Boolean? = null,
     val avatarPhotoId: String? = null,
     val status: String,
+    val sireId: String? = null,
+    val damId: String? = null,
     val createdAt: Long,
     val updatedAt: Long,
     val syncStatus: String = "PENDING"

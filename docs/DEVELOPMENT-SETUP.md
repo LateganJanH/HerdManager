@@ -50,6 +50,8 @@ git clone <repo-url> HerdManager
 cd HerdManager
 ```
 
+**Large files:** The repo may contain PRD PDFs and a `Videos/` folder in history. `Videos/` is in `.gitignore` so new video files are not committed. To shrink a clone you can shallow-clone or add more patterns to `.gitignore` and use `git rm -r --cached <path>` in a follow-up commit (see CONTRIBUTING).
+
 ### 2. Android Setup
 
 ```bash

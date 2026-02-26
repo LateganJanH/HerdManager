@@ -47,10 +47,27 @@ class EditAnimalViewModel @Inject constructor(
             initialValue = emptyList()
         )
 
+    val allAnimals = animalRepository.observeAnimalsByFarm(FarmSettings.DEFAULT_FARM_ID)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList()
+        )
+
     val selectedHerdId = MutableStateFlow<String?>(null)
+    val selectedSireId = MutableStateFlow<String?>(null)
+    val selectedDamId = MutableStateFlow<String?>(null)
 
     fun setSelectedHerd(herdId: String?) {
         selectedHerdId.value = herdId
+    }
+
+    fun setSelectedSire(sireId: String?) {
+        selectedSireId.value = sireId
+    }
+
+    fun setSelectedDam(damId: String?) {
+        selectedDamId.value = damId
     }
 
     private val _updateResult = MutableSharedFlow<UpdateAnimalResult>(replay = 0)
@@ -62,9 +79,13 @@ class EditAnimalViewModel @Inject constructor(
                 _updateResult.emit(UpdateAnimalResult.Error("Date of birth cannot be in the future."))
                 return@launch
             }
+            val animalToSave = animal.copy(
+                sireId = selectedSireId.value.takeIf { !it.isNullOrBlank() },
+                damId = selectedDamId.value.takeIf { !it.isNullOrBlank() }
+            )
             val result = withContext(Dispatchers.IO) {
                 runCatching {
-                    animalRepository.insertAnimal(animal)
+                    animalRepository.insertAnimal(animalToSave)
                     if (newHerdId != null && newHerdId != animal.currentHerdId) {
                         herdRepository.assignAnimalToHerd(animalId, newHerdId, LocalDate.now(), null)
                     }

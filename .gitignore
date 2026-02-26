@@ -54,6 +54,9 @@ web/playwright/.cache/
 .DS_Store
 Thumbs.db
 
+# Media / large binaries (optional: omit to track; repo already has some in initial commit)
+Videos/
+
 # Cursor / agent (optional – remove if you want these tracked)
 agent-tools/
 .cursor/

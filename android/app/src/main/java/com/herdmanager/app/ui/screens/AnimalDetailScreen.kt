@@ -72,6 +72,7 @@ fun AnimalDetailScreen(
     val animal by viewModel.animal.collectAsState()
     val herds by viewModel.herds.collectAsState(initial = emptyList())
     val sires by viewModel.sires.collectAsState(initial = emptyList())
+    val sireAndDam by viewModel.sireAndDam.collectAsState(initial = Pair(null as Animal?, null as Animal?))
     val photos by viewModel.photos.collectAsState(initial = emptyList())
     val breedingEventsWithCalving by viewModel.breedingEventsWithCalving.collectAsState(initial = emptyList())
     val gestationDays by viewModel.gestationDays.collectAsState(initial = com.herdmanager.app.domain.model.FarmSettings.DEFAULT_GESTATION_DAYS)
@@ -184,6 +185,8 @@ fun AnimalDetailScreen(
                 Spacer(modifier = Modifier.height(24.dp))
                 AnimalInfoSection(
                     animal = a,
+                    sire = sireAndDam.first,
+                    dam = sireAndDam.second,
                     currentHerdName = a.currentHerdId?.let { hid -> herds.find { it.id == hid }?.name },
                     herds = herds,
                     onTransferClick = { showTransferHerd = true }
@@ -287,6 +290,8 @@ private fun InfoRow(label: String, value: String) {
 @Composable
 private fun AnimalInfoSection(
     animal: Animal,
+    sire: Animal? = null,
+    dam: Animal? = null,
     currentHerdName: String? = null,
     herds: List<com.herdmanager.app.domain.model.Herd> = emptyList(),
     onTransferClick: () -> Unit = {}
@@ -322,6 +327,8 @@ private fun AnimalInfoSection(
                 InfoRow("Castrated", if (animal.isCastrated == true) "Yes" else "No")
             }
             InfoRow("Status", animal.status.name.replace('_', ' '))
+            sire?.let { InfoRow("Sire", it.earTagNumber + (it.name?.let { n -> " ($n)" } ?: "")) }
+            dam?.let { InfoRow("Dam", it.earTagNumber + (it.name?.let { n -> " ($n)" } ?: "")) }
             InfoRow("Herd", currentHerdName ?: (animal.currentHerdId?.let { "Unknown" } ?: "Unassigned"))
             if (herds.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))

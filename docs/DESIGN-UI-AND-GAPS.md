@@ -61,7 +61,7 @@
 | **Reports** | In-app: herd summary + breeding/calving metrics; CSV export; PDF herd export (Android); PDF report (web Analytics). No Excel yet | Medium |
 | **Multi-device sync** | Firestore sync; multiple devices per account | **Done** |
 | **Auth** | Email/password (Firebase); single user per device | **Done** |
-| **Pedigree** | No sire/dam or family tree | Phase 2 |
+| **Pedigree** | ~~No sire/dam or family tree~~ **Phase 2 done** | Sire/dam on animal (Android: Animal detail shows Sire/Dam; Edit animal has Pedigree section to set sire/dam; new calves get damId). Web: Profiles animal detail shows Sire/Dam when synced. Firestore and API schema include sireId/damId. |
 | **Tasks / reminders** | Only “due soon” banners; no task list or reminders | Medium |
 | **Expenses / income** | No financial tracking | Medium (benchmarks have it) |
 | **Offline indicator** | No explicit “saved offline” or sync status | Low |
@@ -93,7 +93,8 @@
 4. ~~**Web dashboard – real data**~~ **Done.** Firebase Auth + Firestore; dashboard and Profiles show synced herd data. Clicking an animal on Profiles loads full detail (breed, DOB, herd, breeding/calving/health events, photo count). See [NEXT-STEPS.md](NEXT-STEPS.md).
 
 5. **Phase 2**  
-   Pedigree UI, health/weight reminders (health events already in app), optional milk (dairy), data viz.
+   ~~**Pedigree UI**~~ **Done:** Sire and dam on animal (optional). Android: Animal detail shows Sire/Dam; Edit animal has Pedigree (optional) to set sire/dam; new calves get damId. Web: Profiles animal detail shows Sire/Dam when from Firestore. Data model: sireId/damId on Animal; sync, backup, OpenAPI and shared schema updated.  
+   Health/weight reminders (health events already in app), optional milk (dairy), data viz.
 
 6. **Later**  
    Multi-user, finances, EID/sensors.

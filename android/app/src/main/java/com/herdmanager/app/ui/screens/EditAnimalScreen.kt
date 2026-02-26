@@ -91,7 +91,10 @@ fun EditAnimalScreen(
     }
 
     val herds by viewModel.herds.collectAsState(initial = emptyList())
+    val allAnimals by viewModel.allAnimals.collectAsState(initial = emptyList())
     val selectedHerdId by viewModel.selectedHerdId.collectAsState()
+    val selectedSireId by viewModel.selectedSireId.collectAsState()
+    val selectedDamId by viewModel.selectedDamId.collectAsState()
 
     LaunchedEffect(animal) {
         animal?.let { a ->
@@ -106,6 +109,8 @@ fun EditAnimalScreen(
             isCastrated = a.isCastrated == true
             status = a.status
             viewModel.setSelectedHerd(a.currentHerdId)
+            viewModel.setSelectedSire(a.sireId)
+            viewModel.setSelectedDam(a.damId)
         }
     }
 
@@ -284,6 +289,74 @@ fun EditAnimalScreen(
                                 color = if (selectedHerdId == herd.id) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.onSurface
                             )
+                        }
+                    }
+                }
+            }
+            val potentialSires = allAnimals.filter { it.sex == Sex.MALE && it.id != animal?.id }
+            val potentialDams = allAnimals.filter { it.sex == Sex.FEMALE && it.id != animal?.id }
+            if (potentialSires.isNotEmpty() || potentialDams.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text("Pedigree (optional)", style = MaterialTheme.typography.bodyMedium)
+                Spacer(modifier = Modifier.height(4.dp))
+                if (potentialSires.isNotEmpty()) {
+                    Text("Sire", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        TextButton(
+                            onClick = { viewModel.setSelectedSire(null) },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = "None",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (selectedSireId == null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        for (s in potentialSires) {
+                            TextButton(
+                                onClick = { viewModel.setSelectedSire(s.id) },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    text = s.earTagNumber + (s.name?.let { " ($it)" } ?: ""),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (selectedSireId == s.id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+                }
+                if (potentialDams.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("Dam", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        TextButton(
+                            onClick = { viewModel.setSelectedDam(null) },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = "None",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (selectedDamId == null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        for (d in potentialDams) {
+                            TextButton(
+                                onClick = { viewModel.setSelectedDam(d.id) },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    text = d.earTagNumber + (d.name?.let { " ($it)" } ?: ""),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (selectedDamId == d.id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
                         }
                     }
                 }

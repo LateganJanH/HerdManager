@@ -57,6 +57,18 @@ function AnimalDetailContent({
             <dd className="mt-0.5 text-stone-900 dark:text-stone-100">{detail.herdName}</dd>
           </div>
         )}
+        {(detail.sireEarTag ?? detail.sireId) && (
+          <div>
+            <dt className="text-sm font-medium text-stone-500 dark:text-stone-400">Sire</dt>
+            <dd className="mt-0.5 text-stone-900 dark:text-stone-100">{detail.sireEarTag ?? detail.sireId}</dd>
+          </div>
+        )}
+        {(detail.damEarTag ?? detail.damId) && (
+          <div>
+            <dt className="text-sm font-medium text-stone-500 dark:text-stone-400">Dam</dt>
+            <dd className="mt-0.5 text-stone-900 dark:text-stone-100">{detail.damEarTag ?? detail.damId}</dd>
+          </div>
+        )}
       </dl>
 
       {detail.breedingEvents.length > 0 && (

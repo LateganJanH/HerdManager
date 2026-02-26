@@ -209,6 +209,8 @@ class SyncRepositoryImpl @Inject constructor(
                     "isCastrated" to e.isCastrated,
                     "avatarPhotoId" to e.avatarPhotoId,
                     "status" to e.status,
+                    "sireId" to e.sireId,
+                    "damId" to e.damId,
                     "createdAt" to e.createdAt,
                     "updatedAt" to e.updatedAt,
                     "syncStatus" to e.syncStatus
@@ -473,6 +475,8 @@ class SyncRepositoryImpl @Inject constructor(
                         isCastrated = d["isCastrated"] as? Boolean,
                         avatarPhotoId = (d["avatarPhotoId"] as? String).takeIf { !it.isNullOrBlank() },
                         status = d["status"] as? String ?: "ACTIVE",
+                        sireId = (d["sireId"] as? String).takeIf { !it.isNullOrBlank() },
+                        damId = (d["damId"] as? String).takeIf { !it.isNullOrBlank() },
                         createdAt = (d["createdAt"] as? Number)?.toLong() ?: System.currentTimeMillis(),
                         updatedAt = (d["updatedAt"] as? Number)?.toLong() ?: System.currentTimeMillis(),
                         syncStatus = d["syncStatus"] as? String ?: "SYNCED"

@@ -17,7 +17,10 @@ data class Animal(
     val hornStatus: HornStatus? = null,
     val isCastrated: Boolean? = null,
     val avatarPhotoId: String? = null,
-    val status: AnimalStatus
+    val status: AnimalStatus,
+    /** Pedigree: parent animal IDs (Phase 2). */
+    val sireId: String? = null,
+    val damId: String? = null
 )
 
 enum class Sex { MALE, FEMALE }

@@ -8,9 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Phase 2 pedigree: Sire and dam on animal. **Android:** Animal detail shows Sire/Dam; Edit animal has optional Pedigree section (sire/dam dropdowns); new calves get damId; Animal/AnimalEntity/sync/backup include sireId/damId; Room DB version 12. **Web:** Profiles animal detail shows Sire/Dam when from Firestore (sireEarTag/damEarTag resolved from animals collection). **Shared:** OpenAPI and animal.schema.json include optional sireId, damId.
 - Pre-release checklist: [docs/RELEASE-CHECKLIST.md](../docs/RELEASE-CHECKLIST.md) – CI, changelog, version bump, tagging, web/Android deploy; linked from README and CONTRIBUTING
 - SECURITY.md: vulnerability reporting and secure development (secrets, dependencies); linked from README
-- .gitignore: Playwright artifacts (web/test-results/, web/playwright-report/, web/blob-report/, web/playwright/.cache/)
+- .gitignore: Playwright artifacts (web/test-results/, playwright-report/, blob-report/, playwright/.cache/); `_tmp_*`; `Videos/` (new video files not committed); DEVELOPMENT-SETUP note on large files and shallow clone
 - API spec: GET /api/spec serves OpenAPI 3 YAML (from shared/api/openapi.yaml); link in Settings → About ("API spec (OpenAPI 3)"); prebuild copies spec to web/public for production; unit test for /api/spec
 - Accessibility: skip link focuses main content when navigating to #main-content (hashchange listener in AppShellContent); E2E test for skip link
 - E2E: first test passes with or without Firebase (dashboard or sign-in); keyboard shortcut 2 → Profiles tab test; Settings About section test (API spec link + GET /api/spec returns OpenAPI)

@@ -119,6 +119,20 @@ class AnimalDetailViewModel @Inject constructor(
             initialValue = emptyList()
         )
 
+    /** Sire and dam (pedigree parents) for display on detail screen. */
+    val sireAndDam = combine(
+        animal,
+        animalRepository.observeAnimalsByFarm(FarmSettings.DEFAULT_FARM_ID)
+    ) { a, all ->
+        val sire = a?.sireId?.let { sid -> all.find { it.id == sid } }
+        val dam = a?.damId?.let { did -> all.find { it.id == did } }
+        Pair(sire, dam)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = Pair(null as Animal?, null as Animal?)
+    )
+
     val gestationDays = farmSettingsRepository.farmSettings()
         .map { it.gestationDaysClamped() }
         .stateIn(
@@ -202,7 +216,8 @@ class AnimalDetailViewModel @Inject constructor(
                             farmId = FarmSettings.DEFAULT_FARM_ID,
                             avatarPhotoId = null,
                             isCastrated = false,
-                            status = AnimalStatus.ACTIVE
+                            status = AnimalStatus.ACTIVE,
+                            damId = animalId
                         )
                         animalRepository.insertAnimal(calf)
                         calf.id

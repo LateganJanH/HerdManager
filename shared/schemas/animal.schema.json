@@ -18,6 +18,8 @@
     "hornStatus": { "enum": ["POLLED", "HORNED", "SCURED"], "nullable": true },
     "registrationNumbers": { "type": "array", "items": { "type": "string" }, "nullable": true },
     "status": { "enum": ["ACTIVE", "SOLD", "DECEASED", "CULLED", "ACQUIRED_FROM"] },
+    "sireId": { "type": ["string", "null"], "format": "uuid", "description": "Pedigree sire (parent) animal ID" },
+    "damId": { "type": ["string", "null"], "format": "uuid", "description": "Pedigree dam (parent) animal ID" },
     "createdAt": { "type": "string", "format": "date-time" },
     "updatedAt": { "type": "string", "format": "date-time" },
     "syncStatus": { "enum": ["SYNCED", "PENDING", "CONFLICT"] }

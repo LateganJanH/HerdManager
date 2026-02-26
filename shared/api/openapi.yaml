@@ -124,6 +124,8 @@ components:
         coatColor: { type: string, nullable: true }
         hornStatus: { enum: [POLLED, HORNED, SCURED], nullable: true }
         status: { enum: [ACTIVE, SOLD, DECEASED, CULLED, ACQUIRED_FROM] }
+        sireId: { type: string, format: uuid, nullable: true, description: "Pedigree sire (parent) animal ID" }
+        damId: { type: string, format: uuid, nullable: true, description: "Pedigree dam (parent) animal ID" }
     BreedingEvent:
       type: object
       required: [animalId, eventType, serviceDate]

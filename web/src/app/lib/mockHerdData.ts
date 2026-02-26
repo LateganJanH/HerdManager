@@ -102,6 +102,11 @@ export interface AnimalDetail {
   breed?: string;
   dateOfBirth?: string; // YYYY-MM-DD
   herdName?: string;
+  /** Pedigree (Phase 2): parent animal IDs and display labels. */
+  sireId?: string;
+  damId?: string;
+  sireEarTag?: string;
+  damEarTag?: string;
   breedingEvents: AnimalBreedingEvent[];
   calvingEvents: AnimalCalvingEvent[];
   healthEvents: AnimalHealthEvent[];

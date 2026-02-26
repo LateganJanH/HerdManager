@@ -59,7 +59,9 @@ private fun AnimalEntity.toDomain() = Animal(
     hornStatus = hornStatus?.let { HornStatus.valueOf(it) },
     isCastrated = isCastrated,
     avatarPhotoId = avatarPhotoId,
-    status = AnimalStatus.valueOf(status)
+    status = AnimalStatus.valueOf(status),
+    sireId = sireId.takeIf { !it.isNullOrBlank() },
+    damId = damId.takeIf { !it.isNullOrBlank() }
 )
 
 private fun Animal.toEntity() = AnimalEntity(
@@ -77,6 +79,8 @@ private fun Animal.toEntity() = AnimalEntity(
     isCastrated = isCastrated,
     avatarPhotoId = avatarPhotoId,
     status = status.name,
+    sireId = sireId.takeIf { !it.isNullOrBlank() },
+    damId = damId.takeIf { !it.isNullOrBlank() },
     createdAt = System.currentTimeMillis(),
     updatedAt = System.currentTimeMillis()
 )
