@@ -12,4 +12,5 @@ export const SAMPLE_STATS_DATA: HerdStats = {
   openPregnant: 12,
   byStatus: { Active: 89, Open: 12, Pregnant: 18, Sold: 5 },
   bySex: { MALE: 8, FEMALE: 116 },
+  byCategory: { Calves: 22, Heifers: 18, Cows: 76, Bulls: 6, Steers: 2 },
 };

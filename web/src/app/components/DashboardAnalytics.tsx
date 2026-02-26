@@ -10,7 +10,7 @@ import { getMockAnalyticsSeries, getMockEventsByMonth, isSampleDataEnabled } fro
 import { useHerdStats } from "../lib/useHerdStats";
 import { useAnalyticsByMonth } from "../lib/useAnalyticsByMonth";
 import { APP_NAME } from "../lib/version";
-import type { HerdStats } from "../lib/mockHerdData";
+import type { HerdStats } from "../lib/herdStatsTypes";
 import type { AnalyticsSeries } from "../lib/mockHerdData";
 
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -47,6 +47,15 @@ function downloadCsvReport(stats: HerdStats, series: AnalyticsSeries[]) {
   rows.push(["By sex", "Count"]);
   for (const [name, count] of Object.entries(stats.bySex)) {
     rows.push([name, String(count)]);
+  }
+  if (stats.byCategory) {
+    rows.push([]);
+    rows.push(["By category", "Count"]);
+    rows.push(["Calves", String(stats.byCategory.Calves)]);
+    rows.push(["Heifers", String(stats.byCategory.Heifers)]);
+    rows.push(["Cows", String(stats.byCategory.Cows)]);
+    rows.push(["Bulls", String(stats.byCategory.Bulls)]);
+    rows.push(["Steers", String(stats.byCategory.Steers)]);
   }
   if (series.length > 0) {
     rows.push([]);
@@ -107,7 +116,23 @@ function downloadPdfReport(stats: HerdStats, series: AnalyticsSeries[]) {
     doc.text(`${name}: ${count}`, margin + 5, y);
     y += lineHeight;
   }
-
+  if (stats.byCategory) {
+    y += 2;
+    doc.setFont("helvetica", "bold");
+    doc.text("By category", margin, y);
+    y += lineHeight;
+    doc.setFont("helvetica", "normal");
+    doc.text(`Calves: ${stats.byCategory.Calves}`, margin + 5, y);
+    y += lineHeight;
+    doc.text(`Heifers: ${stats.byCategory.Heifers}`, margin + 5, y);
+    y += lineHeight;
+    doc.text(`Cows: ${stats.byCategory.Cows}`, margin + 5, y);
+    y += lineHeight;
+    doc.text(`Bulls: ${stats.byCategory.Bulls}`, margin + 5, y);
+    y += lineHeight;
+    doc.text(`Steers: ${stats.byCategory.Steers}`, margin + 5, y);
+    y += lineHeight;
+  }
   if (series.length > 0) {
     y += 4;
     doc.setFont("helvetica", "bold");
@@ -263,6 +288,61 @@ export function DashboardAnalytics() {
           </p>
         </section>
       ) : null}
+
+      {stats.byCategory && (
+        <section
+          className="rounded-card bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-600 p-5 shadow-card"
+          aria-label="Herd by category breakdown"
+        >
+          <h3 className="text-lg font-semibold text-stone-900 dark:text-stone-100 mb-4">
+            By category
+          </h3>
+          <p className="text-sm text-stone-600 dark:text-stone-400 mb-4">
+            Calves, heifers, cows, bulls, and steers (age + sex + castration).
+          </p>
+          <div className="space-y-3">
+            {(["Calves", "Heifers", "Cows", "Bulls", "Steers"] as const).map((label) => {
+              const value = stats.byCategory![label];
+              const categoryMax = Math.max(
+                stats.byCategory!.Calves,
+                stats.byCategory!.Heifers,
+                stats.byCategory!.Cows,
+                stats.byCategory!.Bulls,
+                stats.byCategory!.Steers,
+                1
+              );
+              return (
+                <div key={label} className="flex items-center gap-3">
+                  <span className="w-20 text-sm font-medium text-stone-700 dark:text-stone-300 shrink-0">
+                    {label}
+                  </span>
+                  <div className="flex-1 h-6 rounded-full bg-stone-200 dark:bg-stone-600 overflow-hidden min-w-[40px]">
+                    <div
+                      className="h-full rounded-full transition-all duration-500 bg-primary/90 dark:bg-primary/80"
+                      style={{
+                        width: `${(value / categoryMax) * 100}%`,
+                      }}
+                      role="presentation"
+                    />
+                  </div>
+                  <span className="text-sm font-medium text-stone-900 dark:text-stone-100 w-8 text-right">
+                    {value}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          {!fromApi && (sample ? (
+            <p className="mt-3 text-xs text-stone-500 dark:text-stone-400">
+              Sample data — connect app to see live category breakdown
+            </p>
+          ) : (
+            <p className="mt-3 text-xs text-stone-500 dark:text-stone-400">
+              Synced from the {APP_NAME} app when animals have date of birth and sex.
+            </p>
+          ))}
+        </section>
+      )}
 
       {showByMonthSection && (
         <section

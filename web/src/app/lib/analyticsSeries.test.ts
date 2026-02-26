@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { seriesFromStats, STATUS_COLORS } from "./analyticsSeries";
-import type { HerdStats } from "./mockHerdData";
+import type { HerdStats } from "./herdStatsTypes";
 
 function stats(overrides: Partial<HerdStats> = {}): HerdStats {
   return {

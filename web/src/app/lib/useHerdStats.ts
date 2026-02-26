@@ -2,7 +2,8 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useEffect } from "react";
-import { getMockHerdStats, type HerdStats } from "./mockHerdData";
+import { getMockHerdStats } from "./mockHerdData";
+import type { HerdStats } from "./herdStatsTypes";
 import { isValidStats } from "./herdStatsValidation";
 import { useAuth } from "./useAuth";
 import { getFirebaseDb, isFirebaseConfigured } from "./firebase";

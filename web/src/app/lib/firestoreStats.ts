@@ -4,8 +4,8 @@
  * Uses dynamic import so the app can run without the firebase package when not configured.
  */
 
+import type { HerdStats } from "./herdStatsTypes";
 import type {
-  HerdStats,
   AnimalProfile,
   AlertItem,
   AnimalDetail,

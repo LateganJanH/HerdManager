@@ -3,6 +3,17 @@
 import { useEffect } from "react";
 import { APP_NAME } from "./lib/version";
 
+function isChunkLoadError(error: Error): boolean {
+  const name = error?.name ?? "";
+  const message = (error?.message ?? "").toLowerCase();
+  return (
+    name === "ChunkLoadError" ||
+    message.includes("loading chunk") ||
+    message.includes("chunk load failed") ||
+    message.includes("timeout")
+  );
+}
+
 export default function Error({
   error,
   reset,
@@ -18,6 +29,8 @@ export default function Error({
     document.title = `Something went wrong | ${APP_NAME}`;
   }, []);
 
+  const chunkError = isChunkLoadError(error);
+
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center bg-stone-50 dark:bg-stone-900 px-4"
@@ -31,16 +44,27 @@ export default function Error({
         Something went wrong
       </h1>
       <p className="mt-2 text-stone-600 dark:text-stone-300 text-center max-w-md">
-        An error occurred. You can try again or return to the dashboard.
+        {chunkError
+          ? "A script failed to load (often due to a slow connection or after an update). Refreshing the page usually fixes it."
+          : "An error occurred. You can try again or return to the dashboard."}
       </p>
       <div className="mt-6 flex gap-3">
         <button
           type="button"
-          onClick={reset}
+          onClick={() => window.location.reload()}
           className="rounded-button bg-primary px-4 py-2 text-white font-medium hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         >
-          Try again
+          Refresh the page
         </button>
+        {!chunkError && (
+          <button
+            type="button"
+            onClick={reset}
+            className="rounded-button border border-stone-300 dark:border-stone-600 px-4 py-2 font-medium text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          >
+            Try again
+          </button>
+        )}
         <a
           href="/"
           className="rounded-button border border-stone-300 dark:border-stone-600 px-4 py-2 font-medium text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"

@@ -4,7 +4,6 @@
  */
 
 import type { HerdStats } from "./herdStatsTypes";
-import { SAMPLE_STATS_DATA } from "./sampleStatsData";
 
 export type { HerdStats };
 
@@ -120,8 +119,17 @@ const MOCK_STATS: HerdStats = {
   bySex: {},
 };
 
-/** Use sample data when no sync is configured (for demo). */
-const SAMPLE_STATS: HerdStats = SAMPLE_STATS_DATA;
+/** Sample stats for demo when sample data is enabled. Inline to avoid circular dependency with sampleStatsData. */
+const SAMPLE_STATS: HerdStats = {
+  totalAnimals: 124,
+  dueSoon: 5,
+  calvingsThisYear: 18,
+  breedingEventsThisYear: 24,
+  openPregnant: 12,
+  byStatus: { Active: 89, Open: 12, Pregnant: 18, Sold: 5 },
+  bySex: { MALE: 8, FEMALE: 116 },
+  byCategory: { Calves: 22, Heifers: 18, Cows: 76, Bulls: 6, Steers: 2 },
+};
 
 const SAMPLE_ALERTS: AlertItem[] = [
   { id: "1", type: "calving", earTag: "A001", dueOrCheckDate: "2026-03-01", daysUntil: 9 },

@@ -14,6 +14,19 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  webpack: (config, { isServer }) => {
+    // Prevent Playwright (E2E devDependency) from being pulled into client bundle
+    // (e.g. by pnpm’s node_modules layout or Next.js context).
+    if (!isServer) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        "playwright": false,
+        "playwright-core": false,
+        "@playwright/test": false,
+      };
+    }
+    return config;
+  },
 };
 
 export default nextConfig;

@@ -1,4 +1,5 @@
-import type { HerdStats, AnalyticsSeries } from "./mockHerdData";
+import type { HerdStats } from "./herdStatsTypes";
+import type { AnalyticsSeries } from "./mockHerdData";
 
 export const STATUS_COLORS: Record<string, string> = {
   Active: "var(--color-primary, #1b4332)",
