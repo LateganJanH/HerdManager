@@ -78,7 +78,7 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.6.0")
 
     // DataStore
-    implementation("androidx.datastore:datastore-preferences:1.1.1")
+    implementation("androidx.datastore:datastore-preferences:1.2.0")
 
     // Play In-App Update (immediate flow when update required)
     implementation("com.google.android.play:app-update:2.1.0")
