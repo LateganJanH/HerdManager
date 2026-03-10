@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-03-10
+
 ### Fixed
 
 - Web build/runtime: removed circular dependency between `mockHerdData` and `sampleStatsData` by introducing `herdStatsTypes.ts` (shared `HerdStats` type); avoids "Cannot read properties of undefined (reading 'call')" at runtime. If build fails with ENOENT on `.nft.json`, delete `.next` and run `pnpm run build` again.

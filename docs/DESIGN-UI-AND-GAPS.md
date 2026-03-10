@@ -8,7 +8,7 @@
 - **Branding** – Ferdinand-inspired bull logo used on Android (HerdManager branding tile above hero, launcher icon) and web (header, favicon); single asset style for recognition across platforms. Android Home: branding tile shows logo + "HerdManager"; "Your herd at a glance" card shows farm name (from Farm settings) then title and subtitle.
 - **Clear hierarchy** – Title/subtitle in app bar, summary strip, section headings.
 - **Offline-first** – Data in Room; no network dependency for core flows.
-- **Dashboard-style metrics** – Herd count and “due soon” in app bar and summary strip. **Home “due soon” card** shows the first few due items (ear tag + calving, pregnancy check, withdrawal end, or weaning weight due) so the user sees who is due at a glance (Android and web).
+- **Dashboard-style metrics** – Herd count and “due soon” in app bar and summary strip. **Home “due soon” card** shows the first few due items (ear tag + calving, pregnancy check, withdrawal end, or weaning weight due) so the user sees who is due at a glance (Android and web). **Growth & weaning KPIs:** Android animal detail shows recent growth summary (latest weight and average daily gain), and herd analytics (Android + web) include average daily gain and average weaning weight; headline “head” counts deliberately exclude animals with status SOLD.
 
 ### Gaps vs current trends
 
@@ -70,7 +70,7 @@
 
 - **Individual records:** Strong (animal-level profile, events).
 - **Alerts:** Calving, pregnancy check, withdrawal-period end, and **weaning weight due** on web and Android. Weaning weight due: Alerts tab and Home “due soon” show calves whose weaning date (DOB + farm weaning age) is in the next 14 days or up to 30 days overdue, with no weight recorded in the window; farm setting “Weaning age (days)” 150–300 (default 200). Web: Settings → Edit farm includes weaning age; Alerts and Home use it for weaning-weight-due items from Firestore.
-- **Performance metrics:** No growth rate, weaning weight, or indexes.
+- **Performance metrics:** Per-animal growth summary (latest weight, gain over last interval, average daily gain) on Android animal detail; herd-level average daily gain and average weaning weight on Android and web Analytics. Headline herd-size metrics (`X head`) exclude SOLD animals so active herd size matches field reality.
 - **Sensors / EID:** No RFID/EID reader integration; ear tag is manual. **Voice input** and **ML Kit text recognition** are implemented on Android: mic button on ear tag/breed (Register & Edit animal); text in added photos is detected and shown in a snackbar on animal detail.
 - **Data export:** CSV and PDF (herd list on Android; Analytics report on web). API spec (OpenAPI 3) at `GET /api/spec`; web Settings → About opens it in an in-app modal (Close returns to dashboard) with "Open in new tab" for raw YAML. **Multi-instance:** When `NEXT_PUBLIC_SOLUTION_ID` and `NEXT_PUBLIC_SUPPORT_URL` are set, About shows instance ID and Help & support / Suggest a feature / Report a problem links (Android: same when BuildConfig is set). See [MULTI-INSTANCE-STRATEGY.md](MULTI-INSTANCE-STRATEGY.md) §5.
 
