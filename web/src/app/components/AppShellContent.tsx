@@ -4,14 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import { APP_NAME } from "../lib/version";
 import { getTheme, setTheme } from "../lib/theme";
 import { ShellRoot } from "./ShellRoot";
+import { VersionRefreshBanner } from "./VersionRefreshBanner";
 
-export type TabId = "home" | "profiles" | "alerts" | "analytics" | "settings";
+export type TabId = "home" | "profiles" | "alerts" | "analytics" | "transactions" | "settings";
 
 const tabs = [
   { id: "home" as const, label: "Home", icon: "⌂" },
   { id: "profiles" as const, label: "Profiles", icon: "☰" },
   { id: "alerts" as const, label: "Alerts", icon: "!" },
   { id: "analytics" as const, label: "Analytics", icon: "▣" },
+  { id: "transactions" as const, label: "Transactions", icon: "₿" },
 ];
 
 export interface AppShellContentProps {
@@ -79,7 +81,14 @@ export function AppShellContent({
       </a>
       <header className="sticky top-0 z-10 border-b border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 shadow-card print:hidden">
         <div className="mx-auto max-w-7xl px-4 h-14 flex items-center justify-between sm:px-6 lg:px-8">
-          <h1 className="text-xl font-bold text-primary">{APP_NAME}</h1>
+          <div className="flex items-center gap-2">
+            <img
+              src="/herdmanager-logo.svg"
+              alt={`${APP_NAME} logo`}
+              className="h-7 w-7"
+            />
+            <h1 className="text-xl font-bold text-primary">{APP_NAME}</h1>
+          </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -149,6 +158,8 @@ export function AppShellContent({
           </div>
         </div>
       </header>
+
+      <VersionRefreshBanner />
 
       <main ref={mainRef} id="main-content" className="flex-1 overflow-auto pb-20 sm:pb-6 print:pb-0" tabIndex={-1}>{children}</main>
 

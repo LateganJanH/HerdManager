@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -42,7 +43,10 @@ private fun defaultHerdSummary() = HerdSummary(
     calvingsThisYear = 0,
     openBreedingEvents = 0,
     dueSoonCount = 0,
-    dueSoonPreview = emptyList()
+    dueSoonPreview = emptyList(),
+    avgDailyGainAll = null,
+    avgDailyGainBySex = emptyMap(),
+    avgWeaningWeightKg = null
 )
 
 /** One line for Home "due soon" card: e.g. "Cow 123 – Calving in 3 days". */
@@ -61,7 +65,13 @@ data class HerdSummary(
     /** Count of calving due + pregnancy check due + withdrawal due in their alert windows (for Home "Due soon"). */
     val dueSoonCount: Int = 0,
     /** First few due items for Home card preview (ear tag + label). */
-    val dueSoonPreview: List<DueSoonPreviewItem> = emptyList()
+    val dueSoonPreview: List<DueSoonPreviewItem> = emptyList(),
+    /** Average daily gain (kg/day) across all animals with at least two weight records. */
+    val avgDailyGainAll: Double? = null,
+    /** Average daily gain (kg/day) grouped by sex. */
+    val avgDailyGainBySex: Map<Sex, Double?> = emptyMap(),
+    /** Average weaning weight (kg) for calves with a recorded weight near weaning. */
+    val avgWeaningWeightKg: Double? = null
 )
 
 @HiltViewModel
@@ -83,6 +93,14 @@ class HerdSummaryViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = null
     )
+
+    val farmDisplayName = farmSettingsRepository.farmSettings()
+        .map { it.displayName }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = "My Farm"
+        )
 
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
@@ -251,6 +269,44 @@ class HerdSummaryViewModel @Inject constructor(
                     .take(DUE_SOON_PREVIEW_MAX)
                     .map { it.second }
 
+                // Growth KPIs
+                val gainPerDayByAnimalId: Map<String, Double> =
+                    weightsByAnimal.mapNotNull { (animalId, records) ->
+                        val summary = computeGrowthSummary(records)
+                        summary?.gainPerDayKg?.let { gain -> animalId to gain }
+                    }.toMap()
+
+                val allGains = gainPerDayByAnimalId.values
+                val avgDailyGainAll = if (allGains.isNotEmpty()) allGains.average() else null
+
+                val avgDailyGainBySex: Map<Sex, Double?> =
+                    Sex.entries.associateWith { sex ->
+                        val gainsForSex = animals
+                            .filter { it.sex == sex }
+                            .mapNotNull { gainPerDayByAnimalId[it.id] }
+                        if (gainsForSex.isNotEmpty()) gainsForSex.average() else null
+                    }
+
+                // Weaning weights for calves whose weaning date has passed
+                val weaningWeights = mutableListOf<Double>()
+                animals.forEach { animal ->
+                    val weaningDue = animal.dateOfBirth.plusDays(weaningDays)
+                    if (!weaningDue.isAfter(now)) {
+                        val records = weightsByAnimal[animal.id].orEmpty()
+                        if (records.isNotEmpty()) {
+                            val cutoff = weaningDue.plusDays(WEANING_ALERT_WINDOW_DAYS)
+                            val candidates = records.filter { !it.date.isAfter(cutoff) }
+                            if (candidates.isNotEmpty()) {
+                                val closest = candidates.minByOrNull {
+                                    kotlin.math.abs(ChronoUnit.DAYS.between(weaningDue, it.date))
+                                }!!
+                                weaningWeights += closest.weightKg
+                            }
+                        }
+                    }
+                }
+                val avgWeaningWeightKg = if (weaningWeights.isNotEmpty()) weaningWeights.average() else null
+
                 HerdSummary(
                     totalAnimals = animals.size,
                     byStatus = AnimalStatus.entries.associateWith { byStatus[it] ?: 0 },
@@ -258,7 +314,10 @@ class HerdSummaryViewModel @Inject constructor(
                     calvingsThisYear = calvingsThisYear,
                     openBreedingEvents = openBreedingEvents,
                     dueSoonCount = dueSoonCount,
-                    dueSoonPreview = dueSoonPreview
+                    dueSoonPreview = dueSoonPreview,
+                    avgDailyGainAll = avgDailyGainAll,
+                    avgDailyGainBySex = avgDailyGainBySex,
+                    avgWeaningWeightKg = avgWeaningWeightKg
                 )
             }.fold(
                 onSuccess = { _summary.value = it },

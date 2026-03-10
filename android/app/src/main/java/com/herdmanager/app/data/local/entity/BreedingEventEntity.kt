@@ -26,6 +26,7 @@ data class BreedingEventEntity(
     val serviceDate: Long,
     val notes: String? = null,
     val createdAt: Long,
+    val updatedAt: Long = 0L,
     val pregnancyCheckDateEpochDay: Long? = null,
     val pregnancyCheckResult: String? = null
 )

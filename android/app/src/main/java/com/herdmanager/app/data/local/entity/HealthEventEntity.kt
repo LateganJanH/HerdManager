@@ -26,5 +26,6 @@ data class HealthEventEntity(
     val product: String? = null,
     val dosage: String? = null,
     val withdrawalPeriodEnd: Long? = null,
-    val notes: String? = null
+    val notes: String? = null,
+    val updatedAt: Long = 0L
 )

@@ -21,4 +21,16 @@ describe("sitemap", () => {
     const hasValidUrl = urls.some((u) => u.startsWith("http") && u.includes("herdmanager"));
     expect(hasValidUrl).toBe(true);
   });
+
+  it("includes changelog URL", () => {
+    const result = sitemap();
+    const urls = result.map((e) => e.url);
+    expect(urls.some((u) => u.endsWith("/changelog"))).toBe(true);
+  });
+
+  it("includes support URL", () => {
+    const result = sitemap();
+    const urls = result.map((e) => e.url);
+    expect(urls.some((u) => u.endsWith("/support"))).toBe(true);
+  });
 });

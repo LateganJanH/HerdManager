@@ -30,5 +30,6 @@ data class HerdAssignmentEntity(
     val herdId: String,
     val assignedAt: Long,
     val removedAt: Long? = null,
-    val reason: String? = null
+    val reason: String? = null,
+    val updatedAt: Long = 0L
 )

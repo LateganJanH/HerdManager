@@ -6,18 +6,22 @@ import androidx.room.TypeConverters
 import com.herdmanager.app.data.local.dao.AnimalDao
 import com.herdmanager.app.data.local.dao.BreedingEventDao
 import com.herdmanager.app.data.local.dao.CalvingEventDao
+import com.herdmanager.app.data.local.dao.ExpenseCategoryDao
 import com.herdmanager.app.data.local.dao.HerdAssignmentDao
 import com.herdmanager.app.data.local.dao.HerdDao
 import com.herdmanager.app.data.local.dao.HealthEventDao
 import com.herdmanager.app.data.local.dao.PhotoDao
+import com.herdmanager.app.data.local.dao.TransactionDao
 import com.herdmanager.app.data.local.dao.WeightRecordDao
 import com.herdmanager.app.data.local.entity.AnimalEntity
 import com.herdmanager.app.data.local.entity.BreedingEventEntity
 import com.herdmanager.app.data.local.entity.CalvingEventEntity
+import com.herdmanager.app.data.local.entity.ExpenseCategoryEntity
 import com.herdmanager.app.data.local.entity.HealthEventEntity
 import com.herdmanager.app.data.local.entity.HerdAssignmentEntity
 import com.herdmanager.app.data.local.entity.HerdEntity
 import com.herdmanager.app.data.local.entity.PhotoEntity
+import com.herdmanager.app.data.local.entity.TransactionEntity
 import com.herdmanager.app.data.local.entity.WeightRecordEntity
 
 @Database(
@@ -29,9 +33,11 @@ import com.herdmanager.app.data.local.entity.WeightRecordEntity
         HealthEventEntity::class,
         WeightRecordEntity::class,
         HerdEntity::class,
-        HerdAssignmentEntity::class
+        HerdAssignmentEntity::class,
+        TransactionEntity::class,
+        ExpenseCategoryEntity::class
     ],
-    version = 12,
+    version = 16,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -44,4 +50,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun photoDao(): PhotoDao
     abstract fun healthEventDao(): HealthEventDao
     abstract fun weightRecordDao(): WeightRecordDao
+    abstract fun transactionDao(): TransactionDao
+    abstract fun expenseCategoryDao(): ExpenseCategoryDao
 }

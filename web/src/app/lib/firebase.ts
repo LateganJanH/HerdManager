@@ -26,11 +26,12 @@ export function isFirebaseConfigured(): boolean {
 // Cached after first successful init (client-side only)
 let authCache: import("firebase/auth").Auth | null = null;
 let dbCache: import("firebase/firestore").Firestore | null = null;
-let initPromise: Promise<{ auth: import("firebase/auth").Auth; db: import("firebase/firestore").Firestore } | null> | null = null;
+let appCache: import("firebase/app").FirebaseApp | null = null;
+let initPromise: Promise<{ auth: import("firebase/auth").Auth; db: import("firebase/firestore").Firestore; app: import("firebase/app").FirebaseApp } | null> | null = null;
 
-async function initFirebase(): Promise<{ auth: import("firebase/auth").Auth; db: import("firebase/firestore").Firestore } | null> {
+async function initFirebase(): Promise<{ auth: import("firebase/auth").Auth; db: import("firebase/firestore").Firestore; app: import("firebase/app").FirebaseApp } | null> {
   if (typeof window === "undefined" || !isFirebaseConfigured()) return null;
-  if (authCache && dbCache) return { auth: authCache, db: dbCache };
+  if (authCache && dbCache && appCache) return { auth: authCache, db: dbCache, app: appCache };
   if (initPromise) return initPromise;
 
   initPromise = (async () => {
@@ -53,7 +54,8 @@ async function initFirebase(): Promise<{ auth: import("firebase/auth").Auth; db:
       }
       authCache = auth;
       dbCache = db;
-      return { auth, db };
+      appCache = app;
+      return { auth, db, app };
     } catch {
       return null;
     }
@@ -72,4 +74,24 @@ export async function getFirebaseAuth(): Promise<import("firebase/auth").Auth | 
 export async function getFirebaseDb(): Promise<import("firebase/firestore").Firestore | null> {
   const result = await initFirebase();
   return result?.db ?? null;
+}
+
+/** Returns Firebase Functions instance (for callables). Null if not configured or init failed. */
+export async function getFirebaseFunctions(): Promise<import("firebase/functions").Functions | null> {
+  const result = await initFirebase();
+  if (!result?.app) return null;
+  try {
+    const { getFunctions, connectFunctionsEmulator } = await import("firebase/functions");
+    const functions = getFunctions(result.app);
+    if (process.env.NEXT_PUBLIC_FIREBASE_USE_EMULATORS === "true") {
+      try {
+        connectFunctionsEmulator(functions, "127.0.0.1", 5001);
+      } catch {
+        // ignore
+      }
+    }
+    return functions;
+  } catch {
+    return null;
+  }
 }

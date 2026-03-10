@@ -5,6 +5,12 @@
  */
 
 import type { HerdStats } from "./herdStatsTypes";
+import {
+  computeHerdStatsFromDocs,
+  type AnimalDoc,
+  type BreedingDoc,
+  type CalvingDoc,
+} from "./herdStatsFromDocs";
 import type {
   AnimalProfile,
   AlertItem,
@@ -19,15 +25,6 @@ import type {
 
 const GESTATION_DAYS = 283;
 const DUE_SOON_DAYS = 14;
-const CALF_AGE_MONTHS = 12;
-const HEIFER_AGE_MONTHS = 24;
-
-/** Months between two epoch days (approximate). */
-function monthsBetweenEpochDays(epochDayStart: number, epochDayEnd: number): number {
-  const d = new Date(epochDayStart * 86400_000);
-  const t = new Date(epochDayEnd * 86400_000);
-  return (t.getFullYear() - d.getFullYear()) * 12 + (t.getMonth() - d.getMonth());
-}
 
 function dateToEpochDay(date: Date): number {
   return Math.floor(date.getTime() / 86400_000);
@@ -57,14 +54,17 @@ export async function fetchHerdStatsFromFirestore(
   const animalsRef = firestore.collection(d, "users", uid, "animals");
   const breedingRef = firestore.collection(d, "users", uid, "breeding_events");
   const calvingRef = firestore.collection(d, "users", uid, "calving_events");
+  const weightsRef = firestore.collection(d, "users", uid, "weight_records");
 
-  const [animalsSnap, breedingSnap, calvingSnap] = await Promise.all([
+  const [animalsSnap, breedingSnap, calvingSnap, weightSnap, settings] = await Promise.all([
     firestore.getDocs(animalsRef),
     firestore.getDocs(breedingRef),
     firestore.getDocs(calvingRef),
+    firestore.getDocs(weightsRef),
+    fetchFarmSettingsFromFirestore(db, uid),
   ]);
 
-  const animals = animalsSnap.docs.map((doc) => {
+  const animals: AnimalDoc[] = animalsSnap.docs.map((doc) => {
     const data = doc.data();
     return {
       id: doc.id,
@@ -75,93 +75,120 @@ export async function fetchHerdStatsFromFirestore(
     };
   });
 
-  const calvedBreedingIds = new Set<string>();
-  const calvingDates: number[] = [];
-  calvingSnap.docs.forEach((doc) => {
+  const breeding: BreedingDoc[] = breedingSnap.docs.map((doc) => {
     const data = doc.data();
-    const breedingId = data.breedingEventId as string | undefined;
-    if (breedingId) calvedBreedingIds.add(breedingId);
-    const actual = data.actualDate;
-    if (typeof actual === "number") calvingDates.push(actual);
+    return {
+      id: doc.id,
+      breedingEventId: data.breedingEventId as string | undefined,
+      pregnancyCheckResult: data.pregnancyCheckResult as string | undefined,
+      serviceDate: data.serviceDate as number | undefined,
+    };
   });
 
-  const now = new Date();
-  const todayEpoch = dateToEpochDay(now);
-  const yearStart = new Date(now.getFullYear(), 0, 1);
-  const yearStartEpoch = dateToEpochDay(yearStart);
-
-  let openPregnant = 0;
-  let dueSoon = 0;
-
-  breedingSnap.docs.forEach((doc) => {
+  const calving: CalvingDoc[] = calvingSnap.docs.map((doc) => {
     const data = doc.data();
-    if (calvedBreedingIds.has(doc.id)) return;
-    const result = (data.pregnancyCheckResult as string) || "";
-    if (result === "NOT_PREGNANT") return;
-    openPregnant++;
-    const serviceDate = data.serviceDate as number | undefined;
-    if (typeof serviceDate !== "number") return;
-    const dueEpoch = serviceDate + GESTATION_DAYS;
-    if (dueEpoch >= todayEpoch && dueEpoch <= todayEpoch + DUE_SOON_DAYS) dueSoon++;
+    return {
+      id: doc.id,
+      breedingEventId: data.breedingEventId as string | undefined,
+      actualDate: data.actualDate as number | undefined,
+    };
   });
 
-  const calvingsThisYear = calvingDates.filter(
-    (epoch) => epoch >= yearStartEpoch
-  ).length;
+  const weightRecords = weightSnap.docs
+    .map((doc) => {
+      const data = doc.data();
+      const animalId = data.animalId as string | undefined;
+      const dateEpoch = toEpochDay(data.date);
+      const weightKg = typeof data.weightKg === "number" ? data.weightKg : undefined;
+      if (!animalId || dateEpoch == null || typeof weightKg !== "number" || Number.isNaN(weightKg)) return null;
+      return { animalId, dateEpoch, weightKg };
+    })
+    .filter((r): r is { animalId: string; dateEpoch: number; weightKg: number } => r != null);
 
-  let breedingEventsThisYear = 0;
-  breedingSnap.docs.forEach((doc) => {
-    const data = doc.data();
-    const serviceDate = data.serviceDate as number | undefined;
-    if (typeof serviceDate === "number" && serviceDate >= yearStartEpoch) {
-      breedingEventsThisYear++;
+  const baseStats = computeHerdStatsFromDocs(animals, breeding, calving);
+  const growthKpis = computeGrowthKpisFromDocs(
+    animals,
+    weightRecords,
+    settings?.weaningAgeDays ?? DEFAULT_WEANING_AGE_DAYS
+  );
+
+  return { ...baseStats, ...growthKpis };
+}
+
+export function computeGrowthKpisFromDocs(
+  animals: AnimalDoc[],
+  weightRecords: { animalId: string; dateEpoch: number; weightKg: number }[],
+  weaningAgeDays: number
+): Pick<HerdStats, "avgDailyGainAllKgPerDay" | "avgDailyGainBySexKgPerDay" | "avgWeaningWeightKg"> {
+  if (animals.length === 0 || weightRecords.length === 0) {
+    return { avgDailyGainAllKgPerDay: undefined, avgDailyGainBySexKgPerDay: undefined, avgWeaningWeightKg: undefined };
+  }
+
+  const todayEpoch = dateToEpochDay(new Date());
+  const weightsByAnimal = new Map<string, { dateEpoch: number; weightKg: number }[]>();
+  weightRecords.forEach((w) => {
+    const list = weightsByAnimal.get(w.animalId) ?? [];
+    list.push(w);
+    weightsByAnimal.set(w.animalId, list);
+  });
+
+  // Per-animal gain per day using the last two weights
+  const gainPerDayByAnimalId = new Map<string, number>();
+  weightsByAnimal.forEach((records, animalId) => {
+    if (records.length < 2) return;
+    const sorted = records.slice().sort((a, b) => a.dateEpoch - b.dateEpoch);
+    const last = sorted[sorted.length - 1];
+    const prev = sorted[sorted.length - 2];
+    const days = Math.max(1, last.dateEpoch - prev.dateEpoch);
+    const gain = last.weightKg - prev.weightKg;
+    const gainPerDay = gain / days;
+    gainPerDayByAnimalId.set(animalId, gainPerDay);
+  });
+
+  const allGains = Array.from(gainPerDayByAnimalId.values());
+  const avgDailyGainAllKgPerDay = allGains.length > 0 ? allGains.reduce((a, b) => a + b, 0) / allGains.length : undefined;
+
+  const avgDailyGainBySexKgPerDay: Record<string, number> = {};
+  const gainsBySex = new Map<string, number[]>();
+  animals.forEach((a) => {
+    const gain = gainPerDayByAnimalId.get(a.id);
+    if (gain == null) return;
+    const list = gainsBySex.get(a.sex) ?? [];
+    list.push(gain);
+    gainsBySex.set(a.sex, list);
+  });
+  gainsBySex.forEach((list, sex) => {
+    if (list.length > 0) {
+      avgDailyGainBySexKgPerDay[sex] = list.reduce((a, b) => a + b, 0) / list.length;
     }
   });
 
-  const byStatus: Record<string, number> = {};
-  const bySex: Record<string, number> = {};
+  // Weaning weights for calves whose weaning date has passed
+  const weaningWeights: number[] = [];
   animals.forEach((a) => {
-    byStatus[a.status] = (byStatus[a.status] ?? 0) + 1;
-    bySex[a.sex] = (bySex[a.sex] ?? 0) + 1;
+    if (a.dateOfBirth == null) return;
+    const dobEpoch = a.dateOfBirth > 1e12 ? Math.floor(a.dateOfBirth / 86400_000) : Math.floor(a.dateOfBirth);
+    const weaningDueEpoch = dobEpoch + weaningAgeDays;
+    if (weaningDueEpoch > todayEpoch) return;
+    const records = weightsByAnimal.get(a.id) ?? [];
+    if (records.length === 0) return;
+    const cutoff = weaningDueEpoch + WEANING_ALERT_WINDOW_DAYS;
+    const candidates = records.filter((r) => r.dateEpoch <= cutoff);
+    if (candidates.length === 0) return;
+    const closest = candidates.reduce((best, r) => {
+      const bestDiff = Math.abs(best.dateEpoch - weaningDueEpoch);
+      const diff = Math.abs(r.dateEpoch - weaningDueEpoch);
+      return diff < bestDiff ? r : best;
+    });
+    weaningWeights.push(closest.weightKg);
   });
-
-  const byCategory: { Calves: number; Heifers: number; Cows: number; Bulls: number; Steers: number } = {
-    Calves: 0,
-    Heifers: 0,
-    Cows: 0,
-    Bulls: 0,
-    Steers: 0,
-  };
-  animals.forEach((a) => {
-    const dobEpoch = a.dateOfBirth != null ? (a.dateOfBirth > 1e12 ? Math.floor(a.dateOfBirth / 86400_000) : Math.floor(a.dateOfBirth)) : null;
-    const monthsOld = dobEpoch != null ? monthsBetweenEpochDays(dobEpoch, todayEpoch) : null;
-    const isMale = a.sex === "MALE";
-    const isFemale = a.sex === "FEMALE";
-    const castrated = a.isCastrated === true;
-    if (monthsOld != null && monthsOld < CALF_AGE_MONTHS) {
-      byCategory.Calves++;
-    } else if (isFemale && monthsOld != null) {
-      if (monthsOld >= HEIFER_AGE_MONTHS) byCategory.Cows++;
-      else byCategory.Heifers++;
-    } else if (isMale) {
-      if (castrated) byCategory.Steers++;
-      else byCategory.Bulls++;
-    } else {
-      if (monthsOld != null && monthsOld < HEIFER_AGE_MONTHS) byCategory.Heifers++;
-      else if (isFemale) byCategory.Cows++;
-      else byCategory.Bulls++;
-    }
-  });
+  const avgWeaningWeightKg =
+    weaningWeights.length > 0 ? weaningWeights.reduce((a, b) => a + b, 0) / weaningWeights.length : undefined;
 
   return {
-    totalAnimals: animals.length,
-    dueSoon,
-    calvingsThisYear,
-    breedingEventsThisYear,
-    openPregnant,
-    byStatus,
-    bySex,
-    byCategory,
+    avgDailyGainAllKgPerDay,
+    avgDailyGainBySexKgPerDay: Object.keys(avgDailyGainBySexKgPerDay).length > 0 ? avgDailyGainBySexKgPerDay : undefined,
+    avgWeaningWeightKg,
   };
 }
 
@@ -531,11 +558,13 @@ export async function fetchFarmSettingsFromFirestore(
   const weaning =
     (data.weaningAgeDays as number | undefined) ?? DEFAULT_WEANING_AGE_DAYS;
   const contacts = parseContactsFromFirestore(data.contacts, data.contactPhone, data.contactEmail);
+  const currencyCode = (data.currencyCode as string)?.trim() || "ZAR";
   return {
     id: (data.id as string) ?? "farm",
     name: (data.name as string) ?? "",
     address: (data.address as string) ?? "",
     contacts,
+    currencyCode,
     calvingAlertDays: Math.max(
       CALVING_ALERT_MIN,
       Math.min(CALVING_ALERT_MAX, typeof calving === "number" ? calving : DEFAULT_CALVING_ALERT_DAYS)
@@ -614,6 +643,7 @@ export async function saveFarmSettingsToFirestore(
         WEANING_AGE_DAYS_MIN,
         Math.min(WEANING_AGE_DAYS_MAX, farm.weaningAgeDays ?? DEFAULT_WEANING_AGE_DAYS)
       ),
+      currencyCode: (farm.currencyCode ?? "ZAR").trim() || "ZAR",
       updatedAt: Date.now(),
     },
     { merge: true }

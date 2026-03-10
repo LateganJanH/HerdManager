@@ -8,6 +8,7 @@ android/build/
 web/.next/
 web/out/
 dist/
+functions/lib/
 *.apk
 *.aab
 
@@ -23,6 +24,9 @@ dist/
 .env.*
 !.env.example
 *.local
+
+# Multi-instance: real registry may contain project IDs (use solution-registry.example.json as template)
+scripts/solution-registry.json
 
 # Firebase (add your own from Firebase Console)
 **/google-services.json

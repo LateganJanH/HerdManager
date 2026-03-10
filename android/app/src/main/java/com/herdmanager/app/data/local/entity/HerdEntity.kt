@@ -15,5 +15,6 @@ data class HerdEntity(
     val farmId: String,
     val description: String? = null,
     val sortOrder: Int = 0,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = 0L
 )

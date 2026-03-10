@@ -65,11 +65,13 @@ export function useFarmSettings(): {
         const gestation = (data.gestationDays as number | undefined) ?? 283;
         const weaning = (data.weaningAgeDays as number | undefined) ?? 200;
         const contacts = parseContactsFromFirestore(data.contacts, data.contactPhone, data.contactEmail);
+        const currencyCode = (data.currencyCode as string)?.trim() || "ZAR";
         const farm: FarmProfile = {
           id: (data.id as string) ?? "farm",
           name: (data.name as string) ?? "",
           address: (data.address as string) ?? "",
           contacts,
+          currencyCode,
           calvingAlertDays: Math.max(1, Math.min(90, calving)),
           pregnancyCheckDaysAfterBreeding: Math.max(14, Math.min(60, pregnancy)),
           gestationDays: Math.max(250, Math.min(320, gestation)),

@@ -23,5 +23,6 @@ data class WeightRecordEntity(
     val animalId: String,
     val date: Long,
     val weightKg: Double,
-    val note: String? = null
+    val note: String? = null,
+    val updatedAt: Long = 0L
 )

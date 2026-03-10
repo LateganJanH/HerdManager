@@ -6,10 +6,13 @@ import { getMockHerdStats } from "./mockHerdData";
 import type { HerdStats } from "./herdStatsTypes";
 import { isValidStats } from "./herdStatsValidation";
 import { useAuth } from "./useAuth";
-import { getFirebaseDb, isFirebaseConfigured } from "./firebase";
+import { getFirebaseDb, getFirebaseFunctions, isFirebaseConfigured } from "./firebase";
 import { fetchHerdStatsFromFirestore } from "./firestoreStats";
 
 const HERD_STATS_QUERY_KEY = "herd-stats-firestore";
+const HERD_STATS_CALLABLE_KEY = "herd-stats-callable";
+
+const useStatsViaCallable = process.env.NEXT_PUBLIC_USE_STATS_VIA_CALLABLE === "true";
 
 async function fetchHerdStatsFromApi(): Promise<HerdStats | null> {
   const res = await fetch("/api/stats");
@@ -18,10 +21,20 @@ async function fetchHerdStatsFromApi(): Promise<HerdStats | null> {
   return isValidStats(data) ? data : null;
 }
 
+async function fetchHerdStatsFromCallable(): Promise<HerdStats | null> {
+  const functions = await getFirebaseFunctions();
+  if (!functions) return null;
+  const { httpsCallable } = await import("firebase/functions");
+  const getHerdStats = httpsCallable<unknown, HerdStats>(functions, "getHerdStats");
+  const result = await getHerdStats({});
+  const data = result.data;
+  return isValidStats(data) ? data : null;
+}
+
 /**
  * Fetches herd stats. When the user is signed in and Firebase is configured,
- * reads from Firestore (same data as Android sync) and subscribes for real-time updates.
- * Otherwise uses /api/stats or mock.
+ * uses Cloud Function getHerdStats (if NEXT_PUBLIC_USE_STATS_VIA_CALLABLE=true),
+ * else reads from Firestore with real-time updates. Otherwise uses /api/stats or mock.
  */
 export function useHerdStats(): {
   stats: HerdStats;
@@ -33,24 +46,27 @@ export function useHerdStats(): {
 } {
   const { user } = useAuth();
   const uid = user?.uid ?? null;
-  const useFirestore = Boolean(uid && isFirebaseConfigured());
+  const useCallable = Boolean(useStatsViaCallable && uid && isFirebaseConfigured());
+  const useFirestore = Boolean(uid && isFirebaseConfigured() && !useCallable);
   const queryClient = useQueryClient();
   const mountedRef = useRef(true);
   const unsubRef = useRef<Array<() => void>>([]);
 
   const query = useQuery({
-    queryKey: useFirestore ? [HERD_STATS_QUERY_KEY, uid] : ["herd-stats"],
-    queryFn: useFirestore
-      ? async () => {
-          const db = await getFirebaseDb();
-          if (!db || !uid) return fetchHerdStatsFromApi();
-          return fetchHerdStatsFromFirestore(db, uid);
-        }
-      : fetchHerdStatsFromApi,
+    queryKey: useCallable ? [HERD_STATS_CALLABLE_KEY, uid] : useFirestore ? [HERD_STATS_QUERY_KEY, uid] : ["herd-stats"],
+    queryFn: useCallable
+      ? async () => fetchHerdStatsFromCallable() ?? fetchHerdStatsFromApi()
+      : useFirestore
+        ? async () => {
+            const db = await getFirebaseDb();
+            if (!db || !uid) return fetchHerdStatsFromApi();
+            return fetchHerdStatsFromFirestore(db, uid);
+          }
+        : fetchHerdStatsFromApi,
     staleTime: 30_000,
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10_000),
-    enabled: !useFirestore || !!uid,
+    enabled: useCallable ? !!uid : !useFirestore || !!uid,
   });
 
   const data = query?.data;
@@ -60,7 +76,7 @@ export function useHerdStats(): {
   const queryRefetch = query?.refetch ?? (() => Promise.resolve());
 
   useEffect(() => {
-    if (!useFirestore || !uid) return;
+    if (!useFirestore || !uid || useCallable) return;
     mountedRef.current = true;
     (async () => {
       const db = await getFirebaseDb();
@@ -86,7 +102,7 @@ export function useHerdStats(): {
       unsubRef.current.forEach((fn) => fn());
       unsubRef.current = [];
     };
-  }, [uid, useFirestore, queryClient]);
+  }, [uid, useFirestore, useCallable, queryClient]);
 
   const stats = data !== undefined && data !== null ? data : getMockHerdStats();
   const fromApi = data != null;

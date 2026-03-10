@@ -50,15 +50,19 @@ To support future per-document merge (e.g. last-updated-wins), Firestore documen
 |--------------------|-----------|-----------|--------|
 | animals            | ✓ uploaded | ✓ uploaded | From AnimalEntity. |
 | settings/farm      | —         | ✓ uploaded | Set on each upload. |
-| herds              | ✓ uploaded | ✓ uploaded | updatedAt = createdAt until HerdEntity has updatedAt. |
-| breeding_events    | ✓ uploaded | ✓ uploaded | updatedAt = createdAt until entity has updatedAt. |
+| herds              | ✓ uploaded | ✓ uploaded | From HerdEntity.updatedAt (DB v13). |
+| breeding_events    | ✓ uploaded | ✓ uploaded | From BreedingEventEntity.updatedAt (DB v13). |
 | calving_events     | ✓ uploaded | ✓ uploaded | Derived from actualDate (epoch day → ms). |
 | health_events      | ✓ uploaded | ✓ uploaded | Derived from date (epoch day → ms). |
 | weight_records     | ✓ uploaded | ✓ uploaded | Derived from date (epoch day → ms). |
 | herd_assignments   | ✓ uploaded | ✓ uploaded | createdAt = assignedAt, updatedAt = removedAt ?: assignedAt. |
 | photos             | ✓ uploaded | ✓ uploaded | createdAt = updatedAt = capturedAt. |
 
-**Phase 2b:** ~~Change download from full replace to merge-by-document-ID using `updatedAt`~~ **Done.** Download merges into local: per document, apply remote if missing locally or if remote is newer (animals: `updatedAt`; herds/breeding: `createdAt`); keep local when local is newer; include local-only docs. Calving, health, weight, herd_assignments, photos: apply all remote (last-writer-wins per doc). Optional later: add `updatedAt` to more Room entities for full timestamp-based merge on all collections.
+**Phase 2b:** ~~Change download from full replace to merge-by-document-ID using `updatedAt`~~ **Done.** Download merges into local: per document, apply remote if missing locally or if remote is newer (animals: `updatedAt`; herds/breeding: **`updatedAt`** as of DB v13); keep local when local is newer; include local-only docs. Calving, health, weight, herd_assignments, photos: apply all remote (last-writer-wins per doc).
+
+### updatedAt on Room entities (herds and breeding – done)
+
+**HerdEntity** and **BreedingEventEntity** now have an `updatedAt` column (DB version 13). Upload sends entity `updatedAt` (or `createdAt` when 0); download merge compares remote vs local `updatedAt` and keeps newer. Repositories set `updatedAt` on insert and on pregnancy-check update; backup export/restore includes it. Calving, health, weight, herd_assignments, photos remain "apply all remote". Previously: only **AnimalEntity** had `updatedAt` in Room.
 
 ---
 

@@ -125,7 +125,24 @@ export function DashboardAlerts() {
         </div>
       )}
 
-      {alerts.length > 0 ? (
+      {loading && rawAlerts.length === 0 ? (
+        <div className="space-y-3" aria-label="Loading alerts" aria-busy="true">
+          {[1, 2, 3, 4].map((i) => (
+            <div
+              key={i}
+              className="rounded-card border border-stone-200 dark:border-stone-600 bg-white dark:bg-stone-800 p-4 animate-pulse"
+              aria-hidden
+            >
+              <div className="flex justify-between">
+                <div className="h-5 w-32 rounded bg-stone-200 dark:bg-stone-600" />
+                <div className="h-4 w-14 rounded bg-stone-200 dark:bg-stone-600" />
+              </div>
+              <div className="mt-2 h-4 w-24 rounded bg-stone-200 dark:bg-stone-600" />
+            </div>
+          ))}
+          <p className="text-sm text-stone-500 dark:text-stone-400">Loading alerts…</p>
+        </div>
+      ) : alerts.length > 0 ? (
         <ul className="space-y-3" aria-label="Upcoming alerts">
           {alerts.map((alert) => (
             <li

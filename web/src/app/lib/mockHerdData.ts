@@ -30,6 +30,9 @@ export interface FarmContact {
   email: string;
 }
 
+/** Default currency: South African Rand (R). */
+export const DEFAULT_CURRENCY_CODE = "ZAR";
+
 /** Farm profile (settings) synced from Firestore; matches Android FarmSettings. */
 export interface FarmProfile {
   id: string;
@@ -43,6 +46,8 @@ export interface FarmProfile {
   gestationDays?: number;
   /** Age in days at which weaning weight is typically recorded (150–300); used for weaning weight due alerts. */
   weaningAgeDays?: number;
+  /** ISO 4217 currency code for transactions (e.g. ZAR, USD). Default ZAR. */
+  currencyCode?: string;
 }
 
 export interface AnimalProfile {
@@ -129,6 +134,9 @@ const SAMPLE_STATS: HerdStats = {
   byStatus: { Active: 89, Open: 12, Pregnant: 18, Sold: 5 },
   bySex: { MALE: 8, FEMALE: 116 },
   byCategory: { Calves: 22, Heifers: 18, Cows: 76, Bulls: 6, Steers: 2 },
+  avgDailyGainAllKgPerDay: 0.9,
+  avgDailyGainBySexKgPerDay: { MALE: 1.0, FEMALE: 0.85 },
+  avgWeaningWeightKg: 210,
 };
 
 const SAMPLE_ALERTS: AlertItem[] = [

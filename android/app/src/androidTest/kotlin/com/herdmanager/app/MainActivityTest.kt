@@ -3,7 +3,6 @@ package com.herdmanager.app
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -58,11 +57,19 @@ class MainActivityTest {
     }
 
     @Test
+    fun openSettings_screenDisplaysWithoutCrash() {
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("nav_farm_settings").performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("farm_settings_screen").assertIsDisplayed()
+    }
+
+    @Test
     fun addAnimalFlow_navigateFillSave_returnsToHerdList() {
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("nav_herd_list").performClick()
         composeTestRule.waitForIdle()
-        composeTestRule.onNodeWithContentDescription("Register animal").performClick()
+        composeTestRule.onNodeWithTag("herd_list_add_animal").performClick()
         composeTestRule.waitForIdle()
         // Focus then type so field has exact content
         composeTestRule.typeIntoTag("addAnimal_earTag", "IT-T001")
@@ -83,7 +90,7 @@ class MainActivityTest {
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("nav_herd_list").performClick()
         composeTestRule.waitForIdle()
-        composeTestRule.onNodeWithContentDescription("Register animal").performClick()
+        composeTestRule.onNodeWithTag("herd_list_add_animal").performClick()
         composeTestRule.waitForIdle()
         composeTestRule.typeIntoTag("addAnimal_earTag", "IT-T002")
         composeTestRule.typeIntoTag("addAnimal_breed", "Angus")

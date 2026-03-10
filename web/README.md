@@ -31,6 +31,8 @@ If you use npm instead, run `npm install`. The project’s `.npmrc` enables `leg
 
 Copy `.env.example` to `.env.local`. To enable **sign-in and live herd data** from the Android app, add your Firebase project keys (`NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, etc.). Use the same Firebase project as the Android app so one account works on both. Without these, the dashboard runs with sample data and no auth gate. For a step-by-step (Firestore rules, Auth, web env), see [FIREBASE-SYNC-WALKTHROUGH.md](../docs/FIREBASE-SYNC-WALKTHROUGH.md).
 
+**Option B (Cloud Functions):** To have the dashboard call Cloud Functions for stats and devices (no Next.js API or Firebase Admin required), deploy the callables from the repo root (`cd functions && npm install && npm run build && firebase deploy --only functions`), then set `NEXT_PUBLIC_USE_STATS_VIA_CALLABLE=true` in `web/.env.local`. See [functions/README.md](../functions/README.md).
+
 ## Development
 
 ```bash
@@ -39,7 +41,7 @@ pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000). The app uses sample data by default; turn it off in **Settings → Development → Use sample data**.  
-API: `GET /api/health`, `GET /api/stats` (herd stats), `GET /api/devices` (linked field devices), `GET /api/spec` (OpenAPI 3 spec, YAML). Settings → About includes a link to the API spec.
+API: `GET /api/health`, `GET /api/stats` (herd stats), `GET /api/devices` (linked field devices), `GET /api/spec` (OpenAPI 3 spec, YAML), `GET /api/instance-config` (solution ID and support URL for multi-instance). Settings → About includes a link to the API spec.
 
 ## Build
 
@@ -52,6 +54,8 @@ pnpm start
 
 For production, set `NEXT_PUBLIC_BASE_URL` (and optionally `NEXT_PUBLIC_APP_VERSION`) in your environment so the sitemap, robots.txt, and health API use the correct origin. The app can be deployed to Vercel, any Node host, or static export (if you configure Next.js for static output). Health check: `GET /api/health` returns `{ ok, service, version }`. SEO: `/sitemap.xml` and `/robots.txt` are generated from the same base URL.
 
+**Multi-instance:** For a dedicated instance per farm, set `NEXT_PUBLIC_SOLUTION_ID` (unique instance ID from `node scripts/create-solution.js`) and optionally `NEXT_PUBLIC_SUPPORT_URL` (support portal base URL). When the support URL is set, Settings → About shows Help & support, Suggest a feature, and Report a problem links tagged with the solution ID; when SOLUTION_ID is set, About also shows **Instance:** <var>id</var>. See [MULTI-INSTANCE-STRATEGY.md](../docs/MULTI-INSTANCE-STRATEGY.md) §5.
+
 ## Test
 
 ```bash
@@ -62,7 +66,7 @@ pnpm test:e2e:ui   # E2E with Playwright UI
 pnpm run ci        # test + build (for CI)
 ```
 
-E2E tests cover: open Home (dashboard or sign-in), skip link, Home Refresh and overview, switch tabs, keyboard shortcut 2 → Profiles, open Settings, Settings About and API spec link (/api/spec returns OpenAPI YAML), toggle theme and sample data, Alerts Withdrawal filter, Edit farm form (when visible) including Contacts. Run without `NEXT_PUBLIC_FIREBASE_*` set so the dashboard loads with sample data (no sign-in). For CI with browsers: `pnpm ci:e2e` (installs Chromium and runs E2E).
+E2E tests cover: open Home (dashboard or sign-in), skip link, Home Refresh and overview, switch tabs, keyboard shortcut 2 → Profiles, open Settings, Settings About and API spec link (/api/spec returns OpenAPI YAML), toggle theme and sample data, Alerts Withdrawal filter, Edit farm form (when visible) including Contacts, Changelog link (Settings About → /changelog), GET /api/instance-config, Support page with solutionId+topic and Support page without params (Get help). Run without `NEXT_PUBLIC_FIREBASE_*` set so the dashboard loads with sample data (no sign-in). For CI with browsers: `pnpm ci:e2e` (installs Chromium and runs E2E).
 
 See [DEVELOPMENT.md](DEVELOPMENT.md) for a contributor-focused guide (scripts, structure, testing, data).
 

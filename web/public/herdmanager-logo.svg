@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Background left transparent so it can sit on different surfaces -->
+  <!-- Head (ellipse) -->
+  <path
+    fill="#1B4332"
+    d="M16 3.5A8.5 9.5 0 1 1 16 22.5A8.5 9.5 0 1 1 16 3.5Z" />
+  <!-- Left horn -->
+  <path
+    fill="#1B4332"
+    d="M9.2 5.4C7.9 4 6 3.6 5.4 4.8 4.9 5.7 5.3 7 7 7.3c.9.2 1.5-.5 2.2-1.2Z" />
+  <!-- Right horn -->
+  <path
+    fill="#1B4332"
+    d="M22.8 5.4C24.1 4 26 3.6 26.6 4.8c.5.9.1 2.2-1.6 2.5-.9.2-1.5-.5-2.2-1.2Z" />
+  <!-- Left eye -->
+  <path
+    fill="#FFFFFF"
+    d="M12 13.2a1.4 1.4 0 1 1-2.8 0 1.4 1.4 0 0 1 2.8 0Z" />
+  <!-- Right eye -->
+  <path
+    fill="#FFFFFF"
+    d="M22.8 13.2a1.4 1.4 0 1 1-2.8 0 1.4 1.4 0 0 1 2.8 0Z" />
+  <!-- Nose -->
+  <ellipse cx="16" cy="19" rx="3.4" ry="2.4" fill="#FFFFFF" />
+</svg>
+

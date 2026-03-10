@@ -44,5 +44,6 @@ private fun WeightRecord.toEntity() = WeightRecordEntity(
     animalId = animalId,
     date = date.toEpochDay(),
     weightKg = weightKg,
-    note = note
+    note = note,
+    updatedAt = System.currentTimeMillis()
 )

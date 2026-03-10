@@ -13,4 +13,7 @@ export const SAMPLE_STATS_DATA: HerdStats = {
   byStatus: { Active: 89, Open: 12, Pregnant: 18, Sold: 5 },
   bySex: { MALE: 8, FEMALE: 116 },
   byCategory: { Calves: 22, Heifers: 18, Cows: 76, Bulls: 6, Steers: 2 },
+  avgDailyGainAllKgPerDay: 0.9,
+  avgDailyGainBySexKgPerDay: { MALE: 1.0, FEMALE: 0.85 },
+  avgWeaningWeightKg: 210,
 };

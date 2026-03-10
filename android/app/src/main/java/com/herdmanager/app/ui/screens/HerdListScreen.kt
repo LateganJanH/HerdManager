@@ -81,6 +81,8 @@ import com.herdmanager.app.domain.model.Herd
 import com.herdmanager.app.domain.model.FarmSettings
 import com.herdmanager.app.domain.model.Sex
 import com.herdmanager.app.ui.components.SyncStatusStrip
+import com.herdmanager.app.ui.components.VoiceInputButton
+import com.herdmanager.app.ui.theme.UiDefaults
 import com.herdmanager.app.ui.theme.WarningAmber
 import androidx.core.content.FileProvider
 import java.io.File
@@ -271,7 +273,8 @@ fun HerdListScreen(
                 onClick = onAddAnimal,
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.testTag("herd_list_add_animal")
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Register animal")
                 Spacer(modifier = Modifier.padding(start = 8.dp))
@@ -304,6 +307,9 @@ fun HerdListScreen(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 },
+                trailingIcon = {
+                    VoiceInputButton(onResult = { searchQuery = it })
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 12.dp),
@@ -314,7 +320,7 @@ fun HerdListScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -529,9 +535,14 @@ private fun HerdFilterDropdown(
             value = label,
             onValueChange = {},
             readOnly = true,
+            label = { Text("Herd") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.menuAnchor(type = MenuAnchorType.PrimaryNotEditable, enabled = true).widthIn(min = 120.dp),
-            shape = RoundedCornerShape(12.dp)
+            modifier = Modifier
+                .menuAnchor(type = MenuAnchorType.PrimaryNotEditable, enabled = true)
+                .widthIn(min = 120.dp),
+            shape = RoundedCornerShape(12.dp),
+            singleLine = true,
+            textStyle = MaterialTheme.typography.bodySmall
         )
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(text = { Text("All herds") }, onClick = { onHerdSelected(null); expanded = false })
@@ -551,38 +562,29 @@ private fun StatusFilterDropdown(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val statusLabel = selectedStatus?.name?.replace('_', ' ') ?: "All statuses"
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it }
-    ) {
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
         OutlinedTextField(
             value = statusLabel,
             onValueChange = {},
             readOnly = true,
+            label = { Text("Status") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .menuAnchor(type = MenuAnchorType.PrimaryNotEditable, enabled = true)
                 .widthIn(min = 140.dp),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(12.dp),
+            singleLine = true,
+            textStyle = MaterialTheme.typography.bodySmall
         )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
                 text = { Text("All statuses") },
-                onClick = {
-                    onStatusSelected(null)
-                    expanded = false
-                }
+                onClick = { onStatusSelected(null); expanded = false }
             )
             AnimalStatus.entries.forEach { status ->
                 DropdownMenuItem(
                     text = { Text(status.name.replace('_', ' ')) },
-                    onClick = {
-                        onStatusSelected(status)
-                        expanded = false
-                    }
+                    onClick = { onStatusSelected(status); expanded = false }
                 )
             }
         }
@@ -596,31 +598,25 @@ private fun CategoryFilterDropdown(
     onCategorySelected: (HerdCategoryFilter) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it }
-    ) {
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
         OutlinedTextField(
             value = selectedCategory.label,
             onValueChange = {},
             readOnly = true,
+            label = { Text("Category") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .menuAnchor(type = MenuAnchorType.PrimaryNotEditable, enabled = true)
                 .widthIn(min = 120.dp),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(12.dp),
+            singleLine = true,
+            textStyle = MaterialTheme.typography.bodySmall
         )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             HerdCategoryFilter.entries.forEach { category ->
                 DropdownMenuItem(
                     text = { Text(category.label) },
-                    onClick = {
-                        onCategorySelected(category)
-                        expanded = false
-                    }
+                    onClick = { onCategorySelected(category); expanded = false }
                 )
             }
         }
@@ -634,31 +630,25 @@ private fun SortOrderDropdown(
     onSortOrderSelected: (AnimalSortOrder) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it }
-    ) {
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
         OutlinedTextField(
             value = selectedSortOrder.label,
             onValueChange = {},
             readOnly = true,
+            label = { Text("Sort") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .menuAnchor(type = MenuAnchorType.PrimaryNotEditable, enabled = true)
                 .widthIn(min = 120.dp),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(12.dp),
+            singleLine = true,
+            textStyle = MaterialTheme.typography.bodySmall
         )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             AnimalSortOrder.entries.forEach { order ->
                 DropdownMenuItem(
                     text = { Text(order.label) },
-                    onClick = {
-                        onSortOrderSelected(order)
-                        expanded = false
-                    }
+                    onClick = { onSortOrderSelected(order); expanded = false }
                 )
             }
         }
@@ -721,12 +711,12 @@ private fun AlertBanner(
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        shape = RoundedCornerShape(12.dp)
+        shape = UiDefaults.CardShape
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(UiDefaults.CardInnerPadding),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
@@ -811,7 +801,7 @@ private fun EmptyHerdState(
             Spacer(modifier = Modifier.height(24.dp))
             androidx.compose.material3.Button(
                 onClick = onAddAnimal,
-                shape = RoundedCornerShape(12.dp)
+                shape = UiDefaults.CardShape
             ) {
                 Text("Register animal")
             }
@@ -819,7 +809,7 @@ private fun EmptyHerdState(
             Spacer(modifier = Modifier.height(24.dp))
             androidx.compose.material3.Button(
                 onClick = onClearSearch,
-                shape = RoundedCornerShape(12.dp)
+                shape = UiDefaults.CardShape
             ) {
                 Text("Clear search")
             }
@@ -839,12 +829,12 @@ private fun AnimalCard(
             .clickable(onClick = onClick, role = Role.Button, onClickLabel = "Open ${animal.earTagNumber}"),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(12.dp)
+        shape = UiDefaults.CardShape
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(18.dp),
+                .padding(UiDefaults.CardInnerPadding),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -922,12 +912,12 @@ private fun HerdListSkeletonItem() {
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(12.dp)
+        shape = UiDefaults.CardShape
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(18.dp),
+                .padding(UiDefaults.CardInnerPadding),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {

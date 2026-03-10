@@ -10,12 +10,18 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.herdmanager.app.domain.model.ThemeMode
 import com.herdmanager.app.navigation.AppNavigation
-import com.herdmanager.app.ui.screens.AuthViewModel
+import com.herdmanager.app.ui.screens.MinVersionGateViewModel
+import com.herdmanager.app.ui.screens.MinVersionState
 import com.herdmanager.app.ui.screens.SignInScreen
+import com.herdmanager.app.ui.screens.SubscriptionLapsedScreen
+import com.herdmanager.app.ui.screens.UpdateRequiredScreen
 import com.herdmanager.app.ui.screens.ThemeViewModel
 import com.herdmanager.app.ui.theme.HerdManagerTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -52,12 +58,21 @@ private fun RootContent(
 
 @Composable
 private fun AuthGate(
-    viewModel: AuthViewModel = hiltViewModel()
+    viewModel: MinVersionGateViewModel = hiltViewModel()
 ) {
     val user by viewModel.authState.collectAsState(initial = null)
+    val minVersionState by viewModel.minVersionState.collectAsState(initial = MinVersionState.Loading)
     if (user == null) {
         SignInScreen()
-    } else {
-        AppNavigation()
+    } else when (minVersionState) {
+        is MinVersionState.Loading -> Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+        is MinVersionState.UpdateRequired -> UpdateRequiredScreen()
+        is MinVersionState.AccessSuspended -> SubscriptionLapsedScreen()
+        is MinVersionState.Ok -> AppNavigation()
     }
 }

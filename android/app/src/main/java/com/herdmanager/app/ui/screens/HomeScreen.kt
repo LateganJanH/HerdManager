@@ -1,5 +1,6 @@
 package com.herdmanager.app.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.PregnantWoman
@@ -38,12 +40,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.herdmanager.app.R
 import com.herdmanager.app.ui.components.SyncStatusStrip
+import com.herdmanager.app.ui.theme.UiDefaults
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,11 +57,13 @@ fun HomeScreen(
     onNavigateToProfiles: () -> Unit,
     onNavigateToAlerts: () -> Unit,
     onNavigateToAnalytics: () -> Unit,
+    onNavigateToTransactions: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     onNavigateToAnimal: (String) -> Unit = {},
     viewModel: HerdSummaryViewModel = hiltViewModel()
 ) {
     val summary by viewModel.summary.collectAsState()
+    val farmDisplayName by viewModel.farmDisplayName.collectAsState(initial = "My Farm")
     val lastSyncedAt by viewModel.lastSyncedAt.collectAsState(initial = null)
     val isSyncing by viewModel.isSyncing.collectAsState(initial = false)
     val syncError by viewModel.syncError.collectAsState(initial = null)
@@ -94,40 +102,74 @@ fun HomeScreen(
                     onSync = { viewModel.syncNow() },
                     onDismissError = { viewModel.clearSyncError() }
                 )
-                // Hero-style gradient card (award-inspired dashboard)
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    MaterialTheme.colorScheme.primary,
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
-                                )
-                            )
-                        )
-                        .padding(20.dp)
+                // HerdManager branding tile (logo + app name)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
-                    Column {
-                        Text(
-                            "Your herd at a glance",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = MaterialTheme.colorScheme.onPrimary
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_herdmanager_logo),
+                            contentDescription = "HerdManager",
+                            modifier = Modifier.size(24.dp),
+                            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary)
                         )
                         Text(
-                            "Quick overview and actions",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f)
+                            text = "HerdManager",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-            }
+                Spacer(modifier = Modifier.height(8.dp))
+                // Hero-style gradient card: farm name + "Your herd at a glance"
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        MaterialTheme.colorScheme.primary,
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
+                                    )
+                                )
+                            )
+                            .padding(20.dp)
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                farmDisplayName,
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                "Your herd at a glance",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                            Text(
+                                "Quick overview and actions",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f)
+                            )
+                        }
+                    }
+                }
                 Spacer(modifier = Modifier.height(8.dp))
 
             // Horizontal strip of status cards (compact dashboard)
@@ -160,10 +202,10 @@ fun HomeScreen(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(UiDefaults.CardShape)
                         .clickable(onClick = onNavigateToAlerts),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = UiDefaults.CardShape
                 ) {
                     Column(
                         modifier = Modifier
@@ -224,16 +266,18 @@ fun HomeScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp)),
+                    .clip(UiDefaults.CardShape),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                shape = RoundedCornerShape(12.dp)
+                shape = UiDefaults.CardShape
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(UiDefaults.CardInnerPadding)) {
                     HomeQuickAction("Profiles – view herd", Icons.AutoMirrored.Filled.List, onNavigateToProfiles)
                     Spacer(modifier = Modifier.height(12.dp))
                     HomeQuickAction("Alerts – reproduction", Icons.Default.PregnantWoman, onNavigateToAlerts)
                     Spacer(modifier = Modifier.height(12.dp))
                     HomeQuickAction("Analytics – summary", Icons.Default.Assessment, onNavigateToAnalytics)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HomeQuickAction("Transactions – sales, purchases, expenses", Icons.Default.AttachMoney, onNavigateToTransactions)
                 }
             }
         }
@@ -249,14 +293,13 @@ private fun HomeStatCard(
     icon: ImageVector
 ) {
     Card(
-        modifier = modifier
-            .clip(RoundedCornerShape(12.dp)),
+        modifier = modifier.clip(UiDefaults.CardShape),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(12.dp),
+        shape = UiDefaults.CardShape,
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(UiDefaults.CardInnerPadding),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Icon(
@@ -288,10 +331,10 @@ private fun HomeQuickAction(
     androidx.compose.material3.Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(UiDefaults.CardShape)
             .then(Modifier.clickable(onClick = onClick)),
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(12.dp)
+        shape = UiDefaults.CardShape
     ) {
         Row(
             modifier = Modifier

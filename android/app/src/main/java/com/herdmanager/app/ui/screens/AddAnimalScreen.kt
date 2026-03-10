@@ -47,6 +47,7 @@ import com.herdmanager.app.domain.model.FarmSettings
 import com.herdmanager.app.domain.model.HornStatus
 import com.herdmanager.app.domain.model.Sex
 import com.herdmanager.app.ui.components.DatePickerDialog
+import com.herdmanager.app.ui.components.VoiceInputButton
 import java.time.LocalDate
 import java.util.UUID
 
@@ -126,7 +127,10 @@ fun AddAnimalScreen(
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
                 isError = earTagError != null,
-                supportingText = earTagError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } }
+                supportingText = earTagError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+                trailingIcon = {
+                    VoiceInputButton(onResult = { earTag = it; error = null })
+                }
             )
             Spacer(modifier = Modifier.height(12.dp))
             OutlinedTextField(
@@ -156,7 +160,10 @@ fun AddAnimalScreen(
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
                 isError = breedError != null,
-                supportingText = breedError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } }
+                supportingText = breedError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+                trailingIcon = {
+                    VoiceInputButton(onResult = { breed = it; error = null })
+                }
             )
             Spacer(modifier = Modifier.height(12.dp))
             Text("Sex *", style = MaterialTheme.typography.bodyMedium)

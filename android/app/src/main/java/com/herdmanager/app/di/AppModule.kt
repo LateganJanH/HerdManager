@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import com.herdmanager.app.data.local.AppDatabase
+import com.herdmanager.app.data.local.Migrations
 import com.herdmanager.app.domain.repository.AuthRepository
 import com.herdmanager.app.data.repository.AnimalRepositoryImpl
 import com.herdmanager.app.data.repository.BreedingEventRepositoryImpl
@@ -13,7 +14,10 @@ import com.herdmanager.app.data.repository.CalvingEventRepositoryImpl
 import com.herdmanager.app.data.repository.BackupRepositoryImpl
 import com.herdmanager.app.data.repository.HealthEventRepositoryImpl
 import com.herdmanager.app.data.repository.PhotoRepositoryImpl
+import com.herdmanager.app.data.repository.ExpenseCategoryRepositoryImpl
+import com.herdmanager.app.data.repository.TransactionRepositoryImpl
 import com.herdmanager.app.data.repository.WeightRecordRepositoryImpl
+import com.herdmanager.app.domain.repository.AppConfigRepository
 import com.herdmanager.app.domain.repository.AnimalRepository
 import com.herdmanager.app.domain.repository.BackupRepository
 import com.herdmanager.app.domain.repository.HerdRepository
@@ -27,7 +31,9 @@ import com.herdmanager.app.data.repository.FarmSettingsRepositoryImpl
 import com.herdmanager.app.data.repository.SyncRepositoryImpl
 import com.herdmanager.app.data.repository.ThemePreferencesRepositoryImpl
 import com.herdmanager.app.domain.repository.SyncRepository
+import com.herdmanager.app.domain.repository.ExpenseCategoryRepository
 import com.herdmanager.app.domain.repository.ThemePreferencesRepository
+import com.herdmanager.app.domain.repository.TransactionRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -47,7 +53,14 @@ object AppModule {
         context,
         AppDatabase::class.java,
         "herdmanager.db"
-    ).fallbackToDestructiveMigration(dropAllTables = true).build()
+    )
+        .addMigrations(
+            Migrations.MIGRATION_13_14,
+            Migrations.MIGRATION_14_15,
+            Migrations.MIGRATION_15_16
+        )
+        .fallbackToDestructiveMigration(dropAllTables = true)
+        .build()
 
     @Provides
     @Singleton
@@ -86,6 +99,16 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideTransactionRepository(db: AppDatabase): TransactionRepository =
+        TransactionRepositoryImpl(db.transactionDao())
+
+    @Provides
+    @Singleton
+    fun provideExpenseCategoryRepository(db: AppDatabase): ExpenseCategoryRepository =
+        ExpenseCategoryRepositoryImpl(db.expenseCategoryDao())
+
+    @Provides
+    @Singleton
     fun provideFarmSettingsRepository(
         @ApplicationContext context: Context
     ): FarmSettingsRepository =
@@ -108,11 +131,12 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideSyncRepository(
+    fun     provideSyncRepository(
         @ApplicationContext context: Context,
         firestore: FirebaseFirestore,
         storage: FirebaseStorage,
         authRepository: AuthRepository,
+        appConfigRepository: AppConfigRepository,
         farmSettingsRepository: FarmSettingsRepository,
         db: AppDatabase
     ): SyncRepository =
@@ -121,6 +145,7 @@ object AppModule {
             firestore,
             storage,
             authRepository,
+            appConfigRepository,
             db.animalDao(),
             db.herdDao(),
             db.herdAssignmentDao(),
@@ -129,12 +154,14 @@ object AppModule {
             db.healthEventDao(),
             db.weightRecordDao(),
             db.photoDao(),
+            db.transactionDao(),
+            db.expenseCategoryDao(),
             farmSettingsRepository
         )
 
     @Provides
     @Singleton
-    fun provideBackupRepository(
+    fun     provideBackupRepository(
         db: AppDatabase,
         farmSettingsRepository: FarmSettingsRepository
     ): BackupRepository =
@@ -147,6 +174,8 @@ object AppModule {
             db.healthEventDao(),
             db.weightRecordDao(),
             db.photoDao(),
+            db.transactionDao(),
+            db.expenseCategoryDao(),
             farmSettingsRepository
         )
 }

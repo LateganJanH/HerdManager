@@ -30,7 +30,7 @@ On push or PR that touch `android/`, the **Android CI** workflow runs:
 
 - **build-and-test:** JDK 17, Android SDK (platform 35, build-tools 35.0.0), Gradle cache, `assembleDebug`, and `testDebugUnitTest`. Instrumented tests (`connectedDebugAndroidTest`) need an emulator and are not run in CI; run them locally.
 
-Workflow files: [.github/workflows/web-ci.yml](.github/workflows/web-ci.yml), [.github/workflows/android-ci.yml](.github/workflows/android-ci.yml). [Dependabot](.github/dependabot.yml) is enabled for monthly dependency update PRs (web npm, Android Gradle, GitHub Actions).
+Workflow files: [.github/workflows/web-ci.yml](.github/workflows/web-ci.yml), [.github/workflows/android-ci.yml](.github/workflows/android-ci.yml), [.github/workflows/scripts-ci.yml](.github/workflows/scripts-ci.yml) (validates solution registry when `scripts/` change). [Dependabot](.github/dependabot.yml) is enabled for monthly dependency update PRs (web npm, Android Gradle, GitHub Actions).
 
 ## Full verification (before PR)
 
@@ -44,6 +44,10 @@ To run the same checks as CI locally:
   `cd android && ./gradlew :app:assembleDebug :app:testDebugUnitTest` (Unix/macOS). On Windows: `.\gradlew.bat :app:assembleDebug :app:testDebugUnitTest`.  
   Set `JAVA_HOME` first on Windows; see [docs/DEVELOPMENT-SETUP.md](docs/DEVELOPMENT-SETUP.md).
 
+- **Scripts (optional):** From repo root, validate the solution registry using the example:  
+  `cp scripts/solution-registry.example.json scripts/solution-registry.json && node scripts/validate-registry.js`  
+  (Scripts CI runs this when `scripts/` change.)
+
 When preparing a versioned release, see [docs/RELEASE-CHECKLIST.md](docs/RELEASE-CHECKLIST.md) (changelog, version bump, tagging, deploy).
 
 ## Project layout
@@ -52,5 +56,7 @@ When preparing a versioned release, see [docs/RELEASE-CHECKLIST.md](docs/RELEASE
 - **`android/`** — Kotlin/Jetpack Compose field app. Entry point for mobile and offline-first features.
 - **`docs/`** — Architecture, data model, MVP. Useful for understanding scope and APIs.
 - **`shared/`** — API contracts and specs (no runtime code).
+
+**Multi-instance (provisioning):** Scripts in `scripts/` support creating and listing solutions (`create-solution.js`, `update-solution.js`, `env-for-solution.js`, `list-solutions.js`, `validate-registry.js`). See [docs/MULTI-INSTANCE-STRATEGY.md](docs/MULTI-INSTANCE-STRATEGY.md) §5.
 
 If you’re unsure where to put something or how to run tests, ask in an issue or in your PR description.

@@ -31,7 +31,7 @@ describe("mockHerdData", () => {
       const alerts = getMockAlerts();
       for (const a of alerts) {
         expect(a).toHaveProperty("id", expect.any(String));
-        expect(["calving", "pregnancy_check", "withdrawal"]).toContain(a.type);
+        expect(["calving", "pregnancy_check", "withdrawal", "weaning_weight"]).toContain(a.type);
         expect(a).toHaveProperty("earTag", expect.any(String));
         expect(a).toHaveProperty("dueOrCheckDate", expect.any(String));
         expect(a).toHaveProperty("daysUntil", expect.any(Number));

@@ -102,9 +102,9 @@ Goals: ship fixes and features safely, keep clients on a supported version, and 
 | Practice | Description |
 |----------|-------------|
 | **Version code / version name** | Bump `versionCode` (integer) every release; use `versionName` (e.g. `1.2.3`) for display. In `build.gradle.kts`: `versionCode = 42`, `versionName = "1.2.3"`. |
-| **Staged rollout** | Use Play Console’s staged rollout (e.g. 10% → 50% → 100%) to catch regressions before full release. |
+| **Staged rollout** | Use Play Console’s **staged rollout** (e.g. 10% → 50% → 100%) to catch regressions before full release. In Play Console: release → Production (or testing track) → manage rollout → set percentage. |
 | **In-app updates (Google Play)** | Use the [In-App Update API](https://developer.android.com/guide/playcore/in-app-updates) so users can update without leaving the app. Prefer “flexible” for non-critical updates; use “immediate” for critical or breaking changes. |
-| **Minimum supported version (backend)** | If you have a backend or Firestore rules that depend on client behaviour, define a **minimum app version**. Expose it from an endpoint or a Firestore doc (e.g. `config/minVersion`). On app start, if current `versionCode` &lt; min, show “Please update the app” and deep-link to Play Store. |
+| **Minimum supported version (backend)** | If you have a backend or Firestore rules that depend on client behaviour, define a **minimum app version**. Expose it from an endpoint or a Firestore doc (e.g. `config/minVersion`). On app start, if current `versionCode` &lt; min, show “Please update the app” and deep-link to Play Store. **Implemented:** Android reads optional `users/{uid}/config/app` with field `minVersionCode` (integer); if set and app’s versionCode &lt; min, shows “Update required” screen with Open Play Store. See [firestore.rules.example](../../firestore.rules.example). |
 | **Deprecation / EOL** | For critical security or data-safety fixes, consider a short grace period after release, then reject older versions (e.g. block sign-in or sync) and show “Update required”. |
 | **Changelog** | Keep a `CHANGELOG.md` or release notes in the repo; mention breaking changes and required actions (e.g. “Update to 1.3.0 before 2026-05-01”). |
 
@@ -132,7 +132,19 @@ Goals: ship fixes and features safely, keep clients on a supported version, and 
 
 ---
 
-### 2.4 Summary table
+### 2.4 Staged rollouts process (instance per farm)
+
+When releasing a new app version across multiple instances:
+
+1. **Build and upload** the new AAB/APK to Play Console (internal or closed track first).
+2. **Validate** on a small set of devices or a single instance (e.g. your own farm or a beta tester).
+3. **Staged rollout** in Play Console: start at 10–20%; monitor crash reports and support; increase to 50%, then 100%.
+4. **Per-instance min-version (optional):** To force a specific instance to update, set Firestore `users/{uid}/config/app` `minVersionCode` to the new version’s code. Only do this after the rollout is available to that user (e.g. after 100% or after the instance’s cohort is included). See [firestore.rules.example](../../firestore.rules.example).
+5. **Document** the release in CHANGELOG and any release notes; mention breaking changes and required actions (see [RELEASE-CHECKLIST.md](../RELEASE-CHECKLIST.md) § Deprecation and EOL).
+
+---
+
+### 2.5 Summary table
 
 | Area | Recommended practice |
 |------|------------------------|

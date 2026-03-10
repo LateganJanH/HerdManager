@@ -32,7 +32,8 @@ class BreedingEventRepositoryImpl(
         dao.insert(
             existing.copy(
                 pregnancyCheckDateEpochDay = date.toEpochDay(),
-                pregnancyCheckResult = result.name
+                pregnancyCheckResult = result.name,
+                updatedAt = System.currentTimeMillis()
             )
         )
     }
@@ -57,6 +58,7 @@ private fun BreedingEvent.toEntity() = BreedingEventEntity(
     serviceDate = serviceDate.toEpochDay(),
     notes = notes,
     createdAt = System.currentTimeMillis(),
+    updatedAt = System.currentTimeMillis(),
     pregnancyCheckDateEpochDay = pregnancyCheckDate?.toEpochDay(),
     pregnancyCheckResult = pregnancyCheckResult?.name
 )

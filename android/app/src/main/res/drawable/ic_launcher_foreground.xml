@@ -1,10 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- HerdManager launcher icon: Ferdinand-inspired bull (scaled to 108dp viewport for adaptive icon). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- Head (ellipse) -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M54,40c-7.7,0 -14,6.3 -14,14s6.3,14 14,14 14,-6.3 14,-14 -6.3,-14 -14,-14zM54,64c-5.5,0 -10,-4.5 -10,-10s4.5,-10 10,-10 10,4.5 10,10 -4.5,10 -10,10z"/>
+        android:pathData="M54,11.25 A42.75,45 0 1,1 54,96.75 A42.75,45 0 1,1 54,11.25 Z"/>
+    <!-- Left horn -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M29.25,18.9 C22.5,11.25 13.5,9 11.25,14.4 C9,18.9 11.25,24.75 20.25,26.1 C24.75,27 27.9,23.4 29.25,18.9 Z"/>
+    <!-- Right horn -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M78.75,18.9 C85.5,11.25 94.5,9 96.75,14.4 C99,18.9 96.75,24.75 87.75,26.1 C83.25,27 80.1,23.4 78.75,18.9 Z"/>
+    <!-- Left eye -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M40.5,42.75 m-5.4,0 a5.4,5.4 0,1 1,10.8 0 a5.4,5.4 0,1 1,-10.8 0"/>
+    <!-- Right eye -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M67.5,42.75 m-5.4,0 a5.4,5.4 0,1 1,10.8 0 a5.4,5.4 0,1 1,-10.8 0"/>
+    <!-- Nose -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,68.4 A10.8,8.1 0,1 1,54 84.6 A10.8,8.1 0,1 1,54 68.4 Z"/>
 </vector>

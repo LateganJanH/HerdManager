@@ -19,10 +19,14 @@ data class FarmSettings(
     val pregnancyCheckDaysAfterBreeding: Int = DEFAULT_PREGNANCY_CHECK_DAYS,
     val gestationDays: Int = DEFAULT_GESTATION_DAYS,
     /** Age in days at which weaning weight is typically recorded; used for "weaning weight due" alerts. */
-    val weaningAgeDays: Int = DEFAULT_WEANING_AGE_DAYS
+    val weaningAgeDays: Int = DEFAULT_WEANING_AGE_DAYS,
+    /** ISO 4217 currency code for monetary display (e.g. ZAR, USD). Default South African Rand. */
+    val currencyCode: String = DEFAULT_CURRENCY_CODE
 ) {
     companion object {
         const val DEFAULT_FARM_ID = "default-farm-mvp"
+        /** Default currency: South African Rand (R). */
+        const val DEFAULT_CURRENCY_CODE = "ZAR"
         const val DEFAULT_CALVING_ALERT_DAYS = 14
         const val CALVING_ALERT_DAYS_MIN = 1
         const val CALVING_ALERT_DAYS_MAX = 60
