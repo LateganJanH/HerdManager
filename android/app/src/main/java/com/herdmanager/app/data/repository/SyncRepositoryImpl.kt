@@ -18,23 +18,29 @@ import kotlinx.coroutines.tasks.await
 import com.herdmanager.app.data.local.dao.AnimalDao
 import com.herdmanager.app.data.local.dao.BreedingEventDao
 import com.herdmanager.app.data.local.dao.CalvingEventDao
+import com.herdmanager.app.data.local.dao.ExpenseCategoryDao
 import com.herdmanager.app.data.local.dao.HealthEventDao
 import com.herdmanager.app.data.local.dao.HerdAssignmentDao
 import com.herdmanager.app.data.local.dao.HerdDao
 import com.herdmanager.app.data.local.dao.PhotoDao
+import com.herdmanager.app.data.local.dao.TransactionDao
 import com.herdmanager.app.data.local.dao.WeightRecordDao
 import com.herdmanager.app.data.local.entity.AnimalEntity
 import com.herdmanager.app.data.local.entity.BreedingEventEntity
 import com.herdmanager.app.data.local.entity.CalvingEventEntity
+import com.herdmanager.app.data.local.entity.ExpenseCategoryEntity
 import com.herdmanager.app.data.local.entity.HealthEventEntity
 import com.herdmanager.app.data.local.entity.HerdAssignmentEntity
 import com.herdmanager.app.data.local.entity.HerdEntity
 import com.herdmanager.app.data.local.entity.PhotoEntity
+import com.herdmanager.app.data.local.entity.TransactionEntity
 import com.herdmanager.app.data.local.entity.WeightRecordEntity
 import com.herdmanager.app.domain.model.FarmSettings
 import com.herdmanager.app.domain.model.FarmContact
+import com.herdmanager.app.domain.repository.AppConfigRepository
 import com.herdmanager.app.domain.repository.AuthRepository
 import com.herdmanager.app.domain.repository.FarmSettingsRepository
+import com.herdmanager.app.domain.repository.SyncBlockedException
 import com.herdmanager.app.domain.repository.SyncRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -58,6 +64,8 @@ private const val COL_HEALTH_EVENTS = "health_events"
 private const val COL_WEIGHT_RECORDS = "weight_records"
 private const val COL_PHOTOS = "photos"
 private const val COL_SETTINGS = "settings"
+private const val COL_TRANSACTIONS = "transactions"
+private const val COL_EXPENSE_CATEGORIES = "expense_categories"
 private const val DOC_FARM = "farm"
 
 class SyncRepositoryImpl @Inject constructor(
@@ -65,6 +73,7 @@ class SyncRepositoryImpl @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val storage: FirebaseStorage,
     private val authRepository: AuthRepository,
+    private val appConfigRepository: AppConfigRepository,
     private val animalDao: AnimalDao,
     private val herdDao: HerdDao,
     private val herdAssignmentDao: HerdAssignmentDao,
@@ -73,6 +82,8 @@ class SyncRepositoryImpl @Inject constructor(
     private val healthEventDao: HealthEventDao,
     private val weightRecordDao: WeightRecordDao,
     private val photoDao: PhotoDao,
+    private val transactionDao: TransactionDao,
+    private val expenseCategoryDao: ExpenseCategoryDao,
     private val farmSettingsRepository: FarmSettingsRepository
 ) : SyncRepository {
 
@@ -80,13 +91,17 @@ class SyncRepositoryImpl @Inject constructor(
         prefs[KEY_LAST_SYNCED_AT]?.let { Instant.ofEpochMilli(it) }
     }
 
-    override suspend fun syncNow(): Result<Unit> = runCatching {
-        val user = authRepository.authState().first() ?: error("Not signed in")
+    override suspend fun syncNow(): Result<Unit> {
+        val user = authRepository.authState().first() ?: return Result.failure(IllegalStateException("Not signed in"))
         val uid = user.uid
+        val blockAfter = appConfigRepository.getBlockSyncAfterEpochMs(uid)
+        if (blockAfter != null && System.currentTimeMillis() >= blockAfter) {
+            return Result.failure(SyncBlockedException(blockAfter))
+        }
+        return runCatching {
+            val userRef = firestore.collection("users").document(uid)
 
-        val userRef = firestore.collection("users").document(uid)
-
-        // Download farm settings first so this device gets updates from others before we overwrite.
+            // Download farm settings first so this device gets updates from others before we overwrite.
         // Otherwise the last device to sync would overwrite Firestore with its (possibly empty) settings.
         downloadFarmSettingsFirst(userRef)
 
@@ -100,6 +115,8 @@ class SyncRepositoryImpl @Inject constructor(
         uploadHealthEvents(userRef)
         uploadWeightRecords(userRef)
         uploadPhotos(userRef, uid)
+        uploadTransactions(userRef)
+        uploadExpenseCategories(userRef)
 
         // Download remote and replace local
         downloadAndReplaceLocal(userRef)
@@ -117,6 +134,7 @@ class SyncRepositoryImpl @Inject constructor(
                 "platform" to "Android"
             )
         ).await()
+        }
     }
 
     private suspend fun getOrCreateDeviceId(): String {
@@ -135,6 +153,7 @@ class SyncRepositoryImpl @Inject constructor(
             val pregnancy = (data["pregnancyCheckDaysAfterBreeding"] as? Number)?.toInt() ?: FarmSettings.DEFAULT_PREGNANCY_CHECK_DAYS
             val gestation = (data["gestationDays"] as? Number)?.toInt() ?: FarmSettings.DEFAULT_GESTATION_DAYS
             val weaning = (data["weaningAgeDays"] as? Number)?.toInt() ?: FarmSettings.DEFAULT_WEANING_AGE_DAYS
+            val currencyCode = (data["currencyCode"] as? String)?.takeIf { it.isNotBlank() } ?: FarmSettings.DEFAULT_CURRENCY_CODE
             val contacts = parseContactsFromFirestore(data["contacts"]).ifEmpty {
                 val p = data["contactPhone"] as? String ?: ""
                 val e = data["contactEmail"] as? String ?: ""
@@ -149,7 +168,8 @@ class SyncRepositoryImpl @Inject constructor(
                     calvingAlertDays = calving.coerceIn(FarmSettings.CALVING_ALERT_DAYS_MIN, FarmSettings.CALVING_ALERT_DAYS_MAX),
                     pregnancyCheckDaysAfterBreeding = pregnancy.coerceIn(FarmSettings.PREGNANCY_CHECK_DAYS_MIN, FarmSettings.PREGNANCY_CHECK_DAYS_MAX),
                     gestationDays = gestation.coerceIn(FarmSettings.GESTATION_DAYS_MIN, FarmSettings.GESTATION_DAYS_MAX),
-                    weaningAgeDays = weaning.coerceIn(FarmSettings.WEANING_AGE_DAYS_MIN, FarmSettings.WEANING_AGE_DAYS_MAX)
+                    weaningAgeDays = weaning.coerceIn(FarmSettings.WEANING_AGE_DAYS_MIN, FarmSettings.WEANING_AGE_DAYS_MAX),
+                    currencyCode = currencyCode
                 )
             )
         }
@@ -187,6 +207,7 @@ class SyncRepositoryImpl @Inject constructor(
                 "pregnancyCheckDaysAfterBreeding" to settings.pregnancyCheckDaysAfterBreeding,
                 "gestationDays" to settings.gestationDays,
                 "weaningAgeDays" to settings.weaningAgeDays,
+                "currencyCode" to (settings.currencyCode.ifBlank { FarmSettings.DEFAULT_CURRENCY_CODE }),
                 "updatedAt" to System.currentTimeMillis()
             )
         ).await()
@@ -228,13 +249,14 @@ class SyncRepositoryImpl @Inject constructor(
         list.chunked(500).forEach { chunk ->
             val batch = firestore.batch()
             chunk.forEach { e ->
+                val updated = if (e.updatedAt > 0L) e.updatedAt else e.createdAt
                 batch.set(userRef.collection(COL_HERDS).document(e.id), mapOf(
                     "name" to e.name,
                     "farmId" to e.farmId,
                     "description" to e.description,
                     "sortOrder" to e.sortOrder,
                     "createdAt" to e.createdAt,
-                    "updatedAt" to e.createdAt
+                    "updatedAt" to updated
                 ))
             }
             batch.commit().await()
@@ -246,6 +268,8 @@ class SyncRepositoryImpl @Inject constructor(
         list.chunked(500).forEach { chunk ->
             val batch = firestore.batch()
             chunk.forEach { e ->
+                val fallbackUpdated = e.removedAt ?: e.assignedAt
+                val updated = if (e.updatedAt > 0L) e.updatedAt else fallbackUpdated
                 batch.set(userRef.collection(COL_HERD_ASSIGNMENTS).document(e.id), mapOf(
                     "animalId" to e.animalId,
                     "herdId" to e.herdId,
@@ -253,7 +277,7 @@ class SyncRepositoryImpl @Inject constructor(
                     "removedAt" to e.removedAt,
                     "reason" to e.reason,
                     "createdAt" to e.assignedAt,
-                    "updatedAt" to (e.removedAt ?: e.assignedAt)
+                    "updatedAt" to updated
                 ))
             }
             batch.commit().await()
@@ -265,6 +289,7 @@ class SyncRepositoryImpl @Inject constructor(
         list.chunked(500).forEach { chunk ->
             val batch = firestore.batch()
             chunk.forEach { e ->
+                val updated = if (e.updatedAt > 0L) e.updatedAt else e.createdAt
                 batch.set(userRef.collection(COL_BREEDING_EVENTS).document(e.id), mapOf(
                     "animalId" to e.animalId,
                     "sireIds" to e.sireIds,
@@ -272,7 +297,7 @@ class SyncRepositoryImpl @Inject constructor(
                     "serviceDate" to e.serviceDate,
                     "notes" to e.notes,
                     "createdAt" to e.createdAt,
-                    "updatedAt" to e.createdAt,
+                    "updatedAt" to updated,
                     "pregnancyCheckDateEpochDay" to e.pregnancyCheckDateEpochDay,
                     "pregnancyCheckResult" to e.pregnancyCheckResult
                 ))
@@ -287,6 +312,7 @@ class SyncRepositoryImpl @Inject constructor(
             val batch = firestore.batch()
             chunk.forEach { e ->
                 val ts = if (e.actualDate > 1e12) e.actualDate else e.actualDate * 86400_000
+                val updated = if (e.updatedAt > 0L) e.updatedAt else ts
                 batch.set(userRef.collection(COL_CALVING_EVENTS).document(e.id), mapOf(
                     "damId" to e.damId,
                     "calfId" to e.calfId,
@@ -297,7 +323,7 @@ class SyncRepositoryImpl @Inject constructor(
                     "calfWeight" to e.calfWeight,
                     "notes" to e.notes,
                     "createdAt" to ts,
-                    "updatedAt" to ts
+                    "updatedAt" to updated
                 ))
             }
             batch.commit().await()
@@ -310,6 +336,7 @@ class SyncRepositoryImpl @Inject constructor(
             val batch = firestore.batch()
             chunk.forEach { e ->
                 val ts = if (e.date > 1e12) e.date else e.date * 86400_000
+                val updated = if (e.updatedAt > 0L) e.updatedAt else ts
                 batch.set(userRef.collection(COL_HEALTH_EVENTS).document(e.id), mapOf(
                     "animalId" to e.animalId,
                     "eventType" to e.eventType,
@@ -319,7 +346,7 @@ class SyncRepositoryImpl @Inject constructor(
                     "withdrawalPeriodEnd" to e.withdrawalPeriodEnd,
                     "notes" to e.notes,
                     "createdAt" to ts,
-                    "updatedAt" to ts
+                    "updatedAt" to updated
                 ))
             }
             batch.commit().await()
@@ -332,13 +359,14 @@ class SyncRepositoryImpl @Inject constructor(
             val batch = firestore.batch()
             chunk.forEach { e ->
                 val ts = if (e.date > 1e12) e.date else e.date * 86400_000
+                val updated = if (e.updatedAt > 0L) e.updatedAt else ts
                 batch.set(userRef.collection(COL_WEIGHT_RECORDS).document(e.id), mapOf(
                     "animalId" to e.animalId,
                     "date" to e.date,
                     "weightKg" to e.weightKg,
                     "note" to e.note,
                     "createdAt" to ts,
-                    "updatedAt" to ts
+                    "updatedAt" to updated
                 ))
             }
             batch.commit().await()
@@ -350,6 +378,7 @@ class SyncRepositoryImpl @Inject constructor(
         val photosRef = storage.reference.child("users").child(uid).child("photos")
         for (e in list) {
             val storageUrl = uploadPhotoFileIfLocal(e.id, e.uri, photosRef)
+            val updated = if (e.updatedAt > 0L) e.updatedAt else e.capturedAt
             val doc = mutableMapOf<String, Any?>(
                 "animalId" to e.animalId,
                 "angle" to e.angle,
@@ -358,10 +387,56 @@ class SyncRepositoryImpl @Inject constructor(
                 "latitude" to e.latitude,
                 "longitude" to e.longitude,
                 "createdAt" to e.capturedAt,
-                "updatedAt" to e.capturedAt
+                "updatedAt" to updated
             )
             if (storageUrl != null) doc["storageUrl"] = storageUrl
             userRef.collection(COL_PHOTOS).document(e.id).set(doc).await()
+        }
+    }
+
+    private suspend fun uploadTransactions(userRef: com.google.firebase.firestore.DocumentReference) {
+        val list = transactionDao.getAll()
+        list.chunked(500).forEach { chunk ->
+            val batch = firestore.batch()
+            chunk.forEach { e ->
+                val updated = if (e.updatedAt > 0L) e.updatedAt else e.createdAt
+                batch.set(userRef.collection(COL_TRANSACTIONS).document(e.id), mapOf(
+                    "type" to e.type,
+                    "amountCents" to e.amountCents,
+                    "dateEpochDay" to e.dateEpochDay,
+                    "farmId" to e.farmId,
+                    "notes" to e.notes,
+                    "createdAt" to e.createdAt,
+                    "updatedAt" to updated,
+                    "weightKg" to e.weightKg,
+                    "pricePerKgCents" to e.pricePerKgCents,
+                    "animalId" to e.animalId,
+                    "contactName" to e.contactName,
+                    "contactPhone" to e.contactPhone,
+                    "contactEmail" to e.contactEmail,
+                    "categoryId" to e.categoryId,
+                    "description" to e.description
+                ))
+            }
+            batch.commit().await()
+        }
+    }
+
+    private suspend fun uploadExpenseCategories(userRef: com.google.firebase.firestore.DocumentReference) {
+        val list = expenseCategoryDao.getAll()
+        list.chunked(500).forEach { chunk ->
+            val batch = firestore.batch()
+            chunk.forEach { e ->
+                val updated = if (e.updatedAt > 0L) e.updatedAt else e.createdAt
+                batch.set(userRef.collection(COL_EXPENSE_CATEGORIES).document(e.id), mapOf(
+                    "name" to e.name,
+                    "farmId" to e.farmId,
+                    "sortOrder" to e.sortOrder,
+                    "createdAt" to e.createdAt,
+                    "updatedAt" to updated
+                ))
+            }
+            batch.commit().await()
         }
     }
 
@@ -409,6 +484,7 @@ class SyncRepositoryImpl @Inject constructor(
             val pregnancy = (data["pregnancyCheckDaysAfterBreeding"] as? Number)?.toInt() ?: FarmSettings.DEFAULT_PREGNANCY_CHECK_DAYS
             val gestation = (data["gestationDays"] as? Number)?.toInt() ?: FarmSettings.DEFAULT_GESTATION_DAYS
             val weaning = (data["weaningAgeDays"] as? Number)?.toInt() ?: FarmSettings.DEFAULT_WEANING_AGE_DAYS
+            val currencyCode = (data["currencyCode"] as? String)?.takeIf { it.isNotBlank() } ?: FarmSettings.DEFAULT_CURRENCY_CODE
             val contacts = parseContactsFromFirestore(data["contacts"]).ifEmpty {
                 val p = data["contactPhone"] as? String ?: ""
                 val e = data["contactEmail"] as? String ?: ""
@@ -423,12 +499,13 @@ class SyncRepositoryImpl @Inject constructor(
                     calvingAlertDays = calving.coerceIn(FarmSettings.CALVING_ALERT_DAYS_MIN, FarmSettings.CALVING_ALERT_DAYS_MAX),
                     pregnancyCheckDaysAfterBreeding = pregnancy.coerceIn(FarmSettings.PREGNANCY_CHECK_DAYS_MIN, FarmSettings.PREGNANCY_CHECK_DAYS_MAX),
                     gestationDays = gestation.coerceIn(FarmSettings.GESTATION_DAYS_MIN, FarmSettings.GESTATION_DAYS_MAX),
-                    weaningAgeDays = weaning.coerceIn(FarmSettings.WEANING_AGE_DAYS_MIN, FarmSettings.WEANING_AGE_DAYS_MAX)
+                    weaningAgeDays = weaning.coerceIn(FarmSettings.WEANING_AGE_DAYS_MIN, FarmSettings.WEANING_AGE_DAYS_MAX),
+                    currencyCode = currencyCode
                 )
             )
         }
 
-        // Herds – merge by document: apply if missing or remote.updatedAt > local.createdAt; else keep local
+        // Herds – merge by document: apply if missing or remote.updatedAt > local.updatedAt (or local.createdAt if no updatedAt); else keep local
         val herdsSnap = userRef.collection(COL_HERDS).get().await()
         val herdsRemoteIds = herdsSnap.documents.map { it.id }.toSet()
         val herds = mutableListOf<HerdEntity>()
@@ -436,7 +513,8 @@ class SyncRepositoryImpl @Inject constructor(
             val d = doc.data ?: continue
             val remoteUpdatedAt = (d["updatedAt"] as? Number)?.toLong() ?: (d["createdAt"] as? Number)?.toLong() ?: 0L
             val local = herdDao.getById(doc.id)
-            if (local != null && remoteUpdatedAt <= local.createdAt) {
+            val localUpdatedAt = (local?.updatedAt?.takeIf { it > 0 } ?: local?.createdAt) ?: 0L
+            if (local != null && remoteUpdatedAt <= localUpdatedAt) {
                 herds.add(local)
             } else {
                 herds.add(
@@ -446,7 +524,8 @@ class SyncRepositoryImpl @Inject constructor(
                         farmId = d["farmId"] as? String ?: FarmSettings.DEFAULT_FARM_ID,
                         description = (d["description"] as? String).takeIf { !it.isNullOrBlank() },
                         sortOrder = (d["sortOrder"] as? Number)?.toInt() ?: 0,
-                        createdAt = (d["createdAt"] as? Number)?.toLong() ?: System.currentTimeMillis()
+                        createdAt = (d["createdAt"] as? Number)?.toLong() ?: System.currentTimeMillis(),
+                        updatedAt = remoteUpdatedAt
                     )
                 )
             }
@@ -494,21 +573,25 @@ class SyncRepositoryImpl @Inject constructor(
         }
         animalDao.getAll().filter { it.id !in animalsRemoteIds }.let { extra -> animals.addAll(extra) }
 
-        // Herd assignments – apply all remote (no local timestamp; last-writer-wins per doc)
+        // Herd assignments – apply all remote
         val assignmentsSnap = userRef.collection(COL_HERD_ASSIGNMENTS).get().await()
         val assignments = assignmentsSnap.documents.mapNotNull { doc ->
             val d = doc.data ?: return@mapNotNull null
+            val assignedAt = (d["assignedAt"] as? Number)?.toLong() ?: return@mapNotNull null
+            val removedAt = (d["removedAt"] as? Number)?.toLong()?.takeIf { it > 0 }
+            val updatedAt = (d["updatedAt"] as? Number)?.toLong() ?: (removedAt ?: assignedAt)
             HerdAssignmentEntity(
                 id = doc.id,
                 animalId = d["animalId"] as? String ?: return@mapNotNull null,
                 herdId = d["herdId"] as? String ?: return@mapNotNull null,
-                assignedAt = (d["assignedAt"] as? Number)?.toLong() ?: return@mapNotNull null,
-                removedAt = (d["removedAt"] as? Number)?.toLong()?.takeIf { it > 0 },
-                reason = (d["reason"] as? String).takeIf { !it.isNullOrBlank() }
+                assignedAt = assignedAt,
+                removedAt = removedAt,
+                reason = (d["reason"] as? String).takeIf { !it.isNullOrBlank() },
+                updatedAt = updatedAt
             )
         }
 
-        // Breeding events – merge: apply if missing or remote.updatedAt > local.createdAt; else keep local
+        // Breeding events – merge: apply if missing or remote.updatedAt > local.updatedAt (or local.createdAt if no updatedAt); else keep local
         val breedingSnap = userRef.collection(COL_BREEDING_EVENTS).get().await()
         val breedingRemoteIds = breedingSnap.documents.map { it.id }.toSet()
         val breedingEvents = mutableListOf<BreedingEventEntity>()
@@ -516,7 +599,8 @@ class SyncRepositoryImpl @Inject constructor(
             val d = doc.data ?: continue
             val remoteUpdatedAt = (d["updatedAt"] as? Number)?.toLong() ?: (d["createdAt"] as? Number)?.toLong() ?: 0L
             val local = breedingEventDao.getById(doc.id)
-            if (local != null && remoteUpdatedAt <= local.createdAt) {
+            val localUpdatedAt = (local?.updatedAt?.takeIf { it > 0 } ?: local?.createdAt) ?: 0L
+            if (local != null && remoteUpdatedAt <= localUpdatedAt) {
                 breedingEvents.add(local)
             } else {
                 val animalId = d["animalId"] as? String ?: continue
@@ -531,6 +615,7 @@ class SyncRepositoryImpl @Inject constructor(
                         serviceDate = serviceDate,
                         notes = (d["notes"] as? String).takeIf { !it.isNullOrBlank() },
                         createdAt = (d["createdAt"] as? Number)?.toLong() ?: System.currentTimeMillis(),
+                        updatedAt = remoteUpdatedAt,
                         pregnancyCheckDateEpochDay = (d["pregnancyCheckDateEpochDay"] as? Number)?.toLong()?.takeIf { it > 0 },
                         pregnancyCheckResult = (d["pregnancyCheckResult"] as? String).takeIf { !it.isNullOrBlank() }
                     )
@@ -543,16 +628,20 @@ class SyncRepositoryImpl @Inject constructor(
         val calvingSnap = userRef.collection(COL_CALVING_EVENTS).get().await()
         val calvingEvents = calvingSnap.documents.mapNotNull { doc ->
             val d = doc.data ?: return@mapNotNull null
+            val actualDate = (d["actualDate"] as? Number)?.toLong() ?: return@mapNotNull null
+            val ts = if (actualDate > 1e12) actualDate else actualDate * 86400_000
+            val updatedAt = (d["updatedAt"] as? Number)?.toLong() ?: ts
             CalvingEventEntity(
                 id = doc.id,
                 damId = d["damId"] as? String ?: return@mapNotNull null,
                 calfId = (d["calfId"] as? String).takeIf { !it.isNullOrBlank() },
                 breedingEventId = d["breedingEventId"] as? String ?: return@mapNotNull null,
-                actualDate = (d["actualDate"] as? Number)?.toLong() ?: return@mapNotNull null,
+                actualDate = actualDate,
                 assistanceRequired = d["assistanceRequired"] as? Boolean ?: false,
                 calfSex = (d["calfSex"] as? String).takeIf { !it.isNullOrBlank() },
                 calfWeight = (d["calfWeight"] as? Number)?.toDouble()?.takeIf { !it.isNaN() },
-                notes = (d["notes"] as? String).takeIf { !it.isNullOrBlank() }
+                notes = (d["notes"] as? String).takeIf { !it.isNullOrBlank() },
+                updatedAt = updatedAt
             )
         }
 
@@ -560,15 +649,19 @@ class SyncRepositoryImpl @Inject constructor(
         val healthSnap = userRef.collection(COL_HEALTH_EVENTS).get().await()
         val healthEvents = healthSnap.documents.mapNotNull { doc ->
             val d = doc.data ?: return@mapNotNull null
+            val date = (d["date"] as? Number)?.toLong() ?: return@mapNotNull null
+            val ts = if (date > 1e12) date else date * 86400_000
+            val updatedAt = (d["updatedAt"] as? Number)?.toLong() ?: ts
             HealthEventEntity(
                 id = doc.id,
                 animalId = d["animalId"] as? String ?: return@mapNotNull null,
                 eventType = d["eventType"] as? String ?: "",
-                date = (d["date"] as? Number)?.toLong() ?: return@mapNotNull null,
+                date = date,
                 product = (d["product"] as? String).takeIf { !it.isNullOrBlank() },
                 dosage = (d["dosage"] as? String).takeIf { !it.isNullOrBlank() },
                 withdrawalPeriodEnd = (d["withdrawalPeriodEnd"] as? Number)?.toLong()?.takeIf { it > 0 },
-                notes = (d["notes"] as? String).takeIf { !it.isNullOrBlank() }
+                notes = (d["notes"] as? String).takeIf { !it.isNullOrBlank() },
+                updatedAt = updatedAt
             )
         }
 
@@ -576,14 +669,80 @@ class SyncRepositoryImpl @Inject constructor(
         val weightSnap = userRef.collection(COL_WEIGHT_RECORDS).get().await()
         val weightRecords = weightSnap.documents.mapNotNull { doc ->
             val d = doc.data ?: return@mapNotNull null
+            val date = (d["date"] as? Number)?.toLong() ?: return@mapNotNull null
+            val ts = if (date > 1e12) date else date * 86400_000
+            val updatedAt = (d["updatedAt"] as? Number)?.toLong() ?: ts
             WeightRecordEntity(
                 id = doc.id,
                 animalId = d["animalId"] as? String ?: return@mapNotNull null,
-                date = (d["date"] as? Number)?.toLong() ?: return@mapNotNull null,
+                date = date,
                 weightKg = (d["weightKg"] as? Number)?.toDouble() ?: return@mapNotNull null,
-                note = (d["note"] as? String).takeIf { !it.isNullOrBlank() }
+                note = (d["note"] as? String).takeIf { !it.isNullOrBlank() },
+                updatedAt = updatedAt
             )
         }
+
+        // Transactions – merge by document
+        val transactionsSnap = userRef.collection(COL_TRANSACTIONS).get().await()
+        val transactionsRemoteIds = transactionsSnap.documents.map { it.id }.toSet()
+        val transactions = mutableListOf<TransactionEntity>()
+        for (doc in transactionsSnap.documents) {
+            val d = doc.data ?: continue
+            val remoteUpdatedAt = (d["updatedAt"] as? Number)?.toLong() ?: (d["createdAt"] as? Number)?.toLong() ?: 0L
+            val local = transactionDao.getById(doc.id)
+            val localUpdatedAt = (local?.updatedAt?.takeIf { it > 0 } ?: local?.createdAt) ?: 0L
+            if (local != null && remoteUpdatedAt <= localUpdatedAt) {
+                transactions.add(local)
+            } else {
+                transactions.add(
+                    TransactionEntity(
+                        id = doc.id,
+                        type = d["type"] as? String ?: "EXPENSE",
+                        amountCents = (d["amountCents"] as? Number)?.toLong() ?: 0L,
+                        dateEpochDay = (d["dateEpochDay"] as? Number)?.toLong() ?: 0L,
+                        farmId = d["farmId"] as? String ?: FarmSettings.DEFAULT_FARM_ID,
+                        notes = (d["notes"] as? String).takeIf { !it.isNullOrBlank() },
+                        createdAt = (d["createdAt"] as? Number)?.toLong() ?: System.currentTimeMillis(),
+                        updatedAt = remoteUpdatedAt,
+                        weightKg = (d["weightKg"] as? Number)?.toDouble(),
+                        pricePerKgCents = (d["pricePerKgCents"] as? Number)?.toLong(),
+                        animalId = (d["animalId"] as? String).takeIf { !it.isNullOrBlank() },
+                        contactName = (d["contactName"] as? String).takeIf { !it.isNullOrBlank() },
+                        contactPhone = (d["contactPhone"] as? String).takeIf { !it.isNullOrBlank() },
+                        contactEmail = (d["contactEmail"] as? String).takeIf { !it.isNullOrBlank() },
+                        categoryId = (d["categoryId"] as? String).takeIf { !it.isNullOrBlank() },
+                        description = (d["description"] as? String).takeIf { !it.isNullOrBlank() }
+                    )
+                )
+            }
+        }
+        transactionDao.getAll().filter { it.id !in transactionsRemoteIds }.let { extra -> transactions.addAll(extra) }
+
+        // Expense categories – merge by document
+        val categoriesSnap = userRef.collection(COL_EXPENSE_CATEGORIES).get().await()
+        val categoriesRemoteIds = categoriesSnap.documents.map { it.id }.toSet()
+        val expenseCategories = mutableListOf<ExpenseCategoryEntity>()
+        for (doc in categoriesSnap.documents) {
+            val d = doc.data ?: continue
+            val remoteUpdatedAt = (d["updatedAt"] as? Number)?.toLong() ?: (d["createdAt"] as? Number)?.toLong() ?: 0L
+            val local = expenseCategoryDao.getById(doc.id)
+            val localUpdatedAt = (local?.updatedAt?.takeIf { it > 0 } ?: local?.createdAt) ?: 0L
+            if (local != null && remoteUpdatedAt <= localUpdatedAt) {
+                expenseCategories.add(local)
+            } else {
+                expenseCategories.add(
+                    ExpenseCategoryEntity(
+                        id = doc.id,
+                        name = d["name"] as? String ?: "",
+                        farmId = d["farmId"] as? String ?: FarmSettings.DEFAULT_FARM_ID,
+                        sortOrder = (d["sortOrder"] as? Number)?.toInt() ?: 0,
+                        createdAt = (d["createdAt"] as? Number)?.toLong() ?: System.currentTimeMillis(),
+                        updatedAt = remoteUpdatedAt
+                    )
+                )
+            }
+        }
+        expenseCategoryDao.getAll().filter { it.id !in categoriesRemoteIds }.let { extra -> expenseCategories.addAll(extra) }
 
         // Photos – apply all remote; prefer storageUrl
         val photosSnap = userRef.collection(COL_PHOTOS).get().await()
@@ -592,6 +751,7 @@ class SyncRepositoryImpl @Inject constructor(
             val uri = (d["storageUrl"] as? String)?.takeIf { it.isNotBlank() }
                 ?: (d["uri"] as? String) ?: return@mapNotNull null
             val capturedAt = (d["capturedAt"] as? Number)?.toLong() ?: return@mapNotNull null
+            val updatedAt = (d["updatedAt"] as? Number)?.toLong() ?: capturedAt
             PhotoEntity(
                 id = doc.id,
                 animalId = d["animalId"] as? String ?: return@mapNotNull null,
@@ -599,7 +759,8 @@ class SyncRepositoryImpl @Inject constructor(
                 uri = uri,
                 capturedAt = capturedAt,
                 latitude = (d["latitude"] as? Number)?.toDouble()?.takeIf { !it.isNaN() },
-                longitude = (d["longitude"] as? Number)?.toDouble()?.takeIf { !it.isNaN() }
+                longitude = (d["longitude"] as? Number)?.toDouble()?.takeIf { !it.isNaN() },
+                updatedAt = updatedAt
             )
         }
 
@@ -610,8 +771,10 @@ class SyncRepositoryImpl @Inject constructor(
         calvingEventDao.deleteAll()
         breedingEventDao.deleteAll()
         herdAssignmentDao.deleteAll()
+        transactionDao.deleteAll()
         animalDao.deleteAll()
         herdDao.deleteAll()
+        expenseCategoryDao.deleteAll()
 
         if (herds.isNotEmpty()) herdDao.insertAll(herds)
         if (animals.isNotEmpty()) animalDao.insertAll(animals)
@@ -621,5 +784,7 @@ class SyncRepositoryImpl @Inject constructor(
         if (healthEvents.isNotEmpty()) healthEventDao.insertAll(healthEvents)
         if (weightRecords.isNotEmpty()) weightRecordDao.insertAll(weightRecords)
         if (photos.isNotEmpty()) photoDao.insertAll(photos)
+        if (transactions.isNotEmpty()) transactionDao.insertAll(transactions)
+        if (expenseCategories.isNotEmpty()) expenseCategoryDao.insertAll(expenseCategories)
     }
 }

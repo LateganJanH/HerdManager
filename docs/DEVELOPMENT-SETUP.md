@@ -95,6 +95,20 @@ Open http://localhost:3000
 3. Copy config to:
    - Android: `google-services.json`
    - Web: `.env.local` (see `web/.env.example`)
+4. **Optional (web API):** For `GET /api/stats` and `GET /api/devices` to return real data when the client sends a Bearer ID token, set `FIREBASE_SERVICE_ACCOUNT_JSON` in `web/.env.local` to the full JSON of a Firebase service account key (or use `GOOGLE_APPLICATION_CREDENTIALS`). See `web/.env.example`.
+5. **Optional (Option B – Cloud Functions):** Deploy callable functions for stats and devices so the web can stay static/serverless. From repo root: `cd functions && npm install && npm run build`, then `firebase deploy --only functions`. In `web/.env.local` set `NEXT_PUBLIC_USE_STATS_VIA_CALLABLE=true` to use them when signed in. See [functions/README.md](../functions/README.md).
+
+### 5. Multi-instance provisioning (optional)
+
+When running or provisioning **one instance per farm** (multi-instance), use the solution registry and scripts in repo root `scripts/`:
+
+- **Create a solution:** `node scripts/create-solution.js [--name "Farm Name"]` — generates `solutionId`, adds entry to `scripts/solution-registry.json`, prints next steps.
+- **Web env for a solution:** `node scripts/env-for-solution.js <solutionId> [--support-url <url>]` — prints `NEXT_PUBLIC_SOLUTION_ID` and `NEXT_PUBLIC_SUPPORT_URL` and the Android Gradle command.
+- **Update registry after deploy:** `node scripts/update-solution.js <solutionId> --firebase-project-id <id> --web-url <url>`.
+- **List solutions (deploy loops):** `node scripts/list-solutions.js [--ids | --project-ids | --json | --deployable]`.
+- **Validate registry:** `node scripts/validate-registry.js` — checks for duplicate `solutionId` and required fields; exit 1 if invalid.
+
+Set `NEXT_PUBLIC_SOLUTION_ID` and `NEXT_PUBLIC_SUPPORT_URL` in `web/.env.local` or build env to see support links and instance ID in Settings → About. Full flow: [MULTI-INSTANCE-STRATEGY.md](MULTI-INSTANCE-STRATEGY.md) §5.
 
 ## Project Commands
 
@@ -136,6 +150,10 @@ pnpm lint    # Lint
 - **Web:** Unit tests: `pnpm test:run` (or `pnpm test` for watch). E2E: `pnpm test:e2e` (Playwright; starts dev server). See [web/README.md](web/README.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
 - **Android:** Unit: `.\gradlew.bat :app:testDebugUnitTest` (Windows). Instrumented (device/emulator): `.\gradlew.bat :app:connectedDebugAndroidTest`. See [android/README.md](android/README.md).
 
+## Release and update policy
+
+Versioning, changelog, and deploy steps: [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md). For software-update practices (Android version code, In-App Update, web "New version available" refresh, min-version checks), see [MULTI-FARM-AND-UPDATES.md](architecture/MULTI-FARM-AND-UPDATES.md) § Software updates. Changelog: [web/CHANGELOG.md](../web/CHANGELOG.md).
+
 ## CI and full verification
 
-On GitHub, push/PR to `main` triggers [Web CI](.github/workflows/web-ci.yml) (when `web/` or `shared/` change) and [Android CI](.github/workflows/android-ci.yml) (when `android/` change). To run the same checks locally, see [CONTRIBUTING.md](CONTRIBUTING.md) § Full verification.
+On GitHub, push/PR to `main` triggers [Web CI](.github/workflows/web-ci.yml) (when `web/` or `shared/` change), [Android CI](.github/workflows/android-ci.yml) (when `android/` change), and [Scripts CI](.github/workflows/scripts-ci.yml) (when `scripts/` change; validates solution registry). To run the same checks locally, see [CONTRIBUTING.md](CONTRIBUTING.md) § Full verification.

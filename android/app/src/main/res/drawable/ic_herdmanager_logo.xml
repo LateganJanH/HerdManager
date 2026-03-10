@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ferdinand-inspired bull head: calm, friendly, rounded horns. Single-color for tinting. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Head (rounded, front-facing ellipse) -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M12,2.5 A9.5,10 0 1,1 12,21.5 A9.5,10 0 1,1 12,2.5 Z"/>
+    <!-- Left horn (Ferdinand-style: gentle upward curve) -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M6.5,4.2C5,2.5 3,2 2.5,3.2C2,4.2 2.5,5.5 4.5,5.8C5.5,6 6.2,5.2 6.5,4.2z"/>
+    <!-- Right horn -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M17.5,4.2C19,2.5 21,2 21.5,3.2C22,4.2 21.5,5.5 19.5,5.8C18.5,6 17.8,5.2 17.5,4.2z"/>
+    <!-- Left eye (friendly dot) -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M9,9.5m-1.2,0a1.2,1.2 0,1 1,2.4 0a1.2,1.2 0,1 1,-2.4 0"/>
+    <!-- Right eye -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M15,9.5m-1.2,0a1.2,1.2 0,1 1,2.4 0a1.2,1.2 0,1 1,-2.4 0"/>
+    <!-- Nose/snout (rounded, bottom center) -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M12,15.2A2.4,1.8 0,1 1,12 18.8A2.4,1.8 0,1 1,12 15.2z"/>
+</vector>

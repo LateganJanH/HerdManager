@@ -1,7 +1,6 @@
 package com.herdmanager.app.navigation
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -10,6 +9,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PregnantWoman
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -50,9 +51,13 @@ import com.herdmanager.app.ui.screens.BreedingScreen
 import com.herdmanager.app.ui.screens.FarmSettingsScreen
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.herdmanager.app.ui.screens.HerdListScreen
+import com.herdmanager.app.ui.screens.AddEditTransactionScreen
+import com.herdmanager.app.ui.screens.ExpenseCategoriesScreen
 import com.herdmanager.app.ui.screens.HerdSummaryScreen
 import com.herdmanager.app.ui.screens.HerdSummaryViewModel
 import com.herdmanager.app.ui.screens.HomeScreen
+import com.herdmanager.app.ui.screens.TransactionsScreen
+import com.herdmanager.app.domain.model.TransactionType
 import kotlinx.coroutines.launch
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
@@ -68,9 +73,17 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     }
     data object FarmSettings : Screen("farm_settings", "Settings", Icons.Default.Settings)
     data object HerdSummary : Screen("herd_summary", "Analytics", Icons.Default.Assessment)
+    data object Transactions : Screen("transactions", "Transactions", Icons.Default.AttachMoney)
+    data object AddTransaction : Screen("add_transaction/{type}", "Add transaction", Icons.Default.AttachMoney) {
+        fun route(type: String) = "add_transaction/$type"
+    }
+    data object EditTransaction : Screen("edit_transaction/{transactionId}", "Edit transaction", Icons.Default.AttachMoney) {
+        fun route(transactionId: String) = "edit_transaction/$transactionId"
+    }
+    data object ExpenseCategories : Screen("expense_categories", "Expense categories", Icons.Default.AttachMoney)
 }
 
-val bottomNavScreens = listOf(Screen.Home, Screen.HerdList, Screen.Breeding, Screen.HerdSummary, Screen.FarmSettings)
+val bottomNavScreens = listOf(Screen.Home, Screen.HerdList, Screen.Breeding, Screen.HerdSummary, Screen.Transactions, Screen.FarmSettings)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -93,9 +106,10 @@ fun AppNavigation(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    BoxWithConstraints {
-        val isLargeScreen = maxWidth >= 600.dp
+    val configuration = LocalConfiguration.current
+    val isLargeScreen = configuration.screenWidthDp >= 600
 
+    Box {
         if (showAddAnimalSheet) {
             val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
             ModalBottomSheet(
@@ -184,6 +198,13 @@ fun AppNavigation(
                             restoreState = true
                         }
                     },
+                    onNavigateToTransactions = {
+                        navController.navigate(Screen.Transactions.route) {
+                            popUpTo(Screen.Home.route) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
                     onNavigateToSettings = {
                         navController.navigate(Screen.FarmSettings.route) {
                             popUpTo(Screen.Home.route) { saveState = true }
@@ -242,6 +263,47 @@ fun AppNavigation(
                     onAnimalDeleted = { navController.popBackStack() },
                     viewModel = androidx.hilt.navigation.compose.hiltViewModel(backStackEntry)
                 )
+            }
+            composable(Screen.Transactions.route) {
+                TransactionsScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onAddTransaction = { type ->
+                        navController.navigate(Screen.AddTransaction.route(type.name))
+                    },
+                    onEditTransaction = { id -> navController.navigate(Screen.EditTransaction.route(id)) },
+                    onManageExpenseCategories = { navController.navigate(Screen.ExpenseCategories.route) },
+                    onAnimalClick = { animalId -> navController.navigate(Screen.AnimalDetail.route(animalId)) }
+                )
+            }
+            composable(
+                route = Screen.AddTransaction.route,
+                arguments = listOf(navArgument("type") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val typeStr = backStackEntry.arguments?.getString("type") ?: "EXPENSE"
+                val type = try {
+                    TransactionType.valueOf(typeStr)
+                } catch (_: Exception) {
+                    TransactionType.EXPENSE
+                }
+                AddEditTransactionScreen(
+                    transactionId = null,
+                    initialType = type,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(
+                route = Screen.EditTransaction.route,
+                arguments = listOf(navArgument("transactionId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val transactionId = backStackEntry.arguments?.getString("transactionId")
+                AddEditTransactionScreen(
+                    transactionId = transactionId,
+                    initialType = TransactionType.EXPENSE,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.ExpenseCategories.route) {
+                ExpenseCategoriesScreen(onNavigateBack = { navController.popBackStack() })
             }
             composable(Screen.FarmSettings.route) {
                 FarmSettingsScreen(onNavigateBack = { navController.popBackStack() })

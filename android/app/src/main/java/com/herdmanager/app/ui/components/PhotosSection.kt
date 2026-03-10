@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.herdmanager.app.domain.model.Photo
 import com.herdmanager.app.domain.model.PhotoAngle
+import com.herdmanager.app.ui.util.runTextRecognition
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
@@ -72,6 +73,7 @@ fun PhotosSection(
     onPhotoAdded: (String, PhotoAngle, Double?, Double?) -> Unit,
     onPhotoDeleted: (Photo) -> Unit,
     onSetAvatar: (Photo) -> Unit = {},
+    onTextDetected: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -98,10 +100,16 @@ fun PhotosSection(
         val angle = pendingAngle
         val file = pendingFile
         if (success && angle != null && file != null && file.exists()) {
+            val path = file.absolutePath
             scope.launch(Dispatchers.IO) {
                 val loc = getLastLocation(context)
                 withContext(Dispatchers.Main) {
-                    onPhotoAdded(file.absolutePath, angle, loc?.first, loc?.second)
+                    onPhotoAdded(path, angle, loc?.first, loc?.second)
+                }
+                onTextDetected?.let { callback ->
+                    runTextRecognition(context, path) { text ->
+                        if (text != null) scope.launch(Dispatchers.Main) { callback(text) }
+                    }
                 }
             }
         }
@@ -139,10 +147,16 @@ fun PhotosSection(
                     }
                 }
                 if (file.exists()) {
+                    val path = file.absolutePath
                     scope.launch(Dispatchers.IO) {
                         val loc = getLastLocation(context)
                         withContext(Dispatchers.Main) {
-                            onPhotoAdded(file.absolutePath, angle, loc?.first, loc?.second)
+                            onPhotoAdded(path, angle, loc?.first, loc?.second)
+                        }
+                        onTextDetected?.let { callback ->
+                            runTextRecognition(context, path) { text ->
+                                if (text != null) scope.launch(Dispatchers.Main) { callback(text) }
+                            }
                         }
                     }
                 }

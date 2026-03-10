@@ -4,12 +4,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -18,7 +20,6 @@ import androidx.compose.material.icons.filled.PregnantWoman
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -35,10 +36,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.herdmanager.app.ui.theme.UiDefaults
+import com.herdmanager.app.ui.components.HorizontalFilterChips
+import com.herdmanager.app.domain.model.BreedingEvent
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import androidx.hilt.navigation.compose.hiltViewModel
-import com.herdmanager.app.domain.model.BreedingEvent
 
 private enum class AlertsFilter(val label: String) {
     ALL("All"),
@@ -67,7 +70,15 @@ fun BreedingScreen(
     val showPregnancyCheck = filter == AlertsFilter.ALL || filter == AlertsFilter.PREGNANCY_CHECK
     val showWithdrawal = filter == AlertsFilter.ALL || filter == AlertsFilter.WITHDRAWAL
     val showWeaningWeight = filter == AlertsFilter.ALL || filter == AlertsFilter.WEANING_WEIGHT
-    val hasAny = calvings.isNotEmpty() || pregnancyChecks.isNotEmpty() || withdrawals.isNotEmpty() || weaningWeightDue.isNotEmpty()
+
+    // Whether there is at least one alert for the current filter selection.
+    val hasAny = when (filter) {
+        AlertsFilter.ALL -> calvings.isNotEmpty() || pregnancyChecks.isNotEmpty() || withdrawals.isNotEmpty() || weaningWeightDue.isNotEmpty()
+        AlertsFilter.CALVING -> calvings.isNotEmpty()
+        AlertsFilter.PREGNANCY_CHECK -> pregnancyChecks.isNotEmpty()
+        AlertsFilter.WITHDRAWAL -> withdrawals.isNotEmpty()
+        AlertsFilter.WEANING_WEIGHT -> weaningWeightDue.isNotEmpty()
+    }
 
     Scaffold(
         topBar = {
@@ -83,49 +94,43 @@ fun BreedingScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Text(
                     text = "Calving due, pregnancy check, withdrawal and weaning weight reminders",
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                androidx.compose.foundation.layout.Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                HorizontalFilterChips(
+                    options = AlertsFilter.entries.map { it.label to (filter == it) },
+                    onOptionSelected = { filter = AlertsFilter.entries[it] },
                     modifier = Modifier.fillMaxWidth()
-                ) {
-                    AlertsFilter.entries.forEach { f ->
-                        FilterChip(
-                            selected = filter == f,
-                            onClick = { filter = f },
-                            label = { Text(f.label) }
-                        )
-                    }
-                }
+                )
             }
 
             if (!hasAny) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(32.dp),
+                        .padding(24.dp),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
                 ) {
                     Icon(
                         imageVector = Icons.Default.PregnantWoman,
                         contentDescription = "No alerts",
-                        modifier = Modifier.size(64.dp),
+                        modifier = Modifier.size(56.dp),
                         tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "No calving, pregnancy check, withdrawal or weaning weight alerts",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = "No alerts right now",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Open an animal to record service",
+                        text = "Open an animal to record service or health events.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -157,12 +162,23 @@ fun BreedingScreen(
                         if (showCalving && calvings.isNotEmpty()) {
                             if (filter == AlertsFilter.ALL) {
                                 item(key = "header_calving") {
-                                    Text(
-                                        text = "Calving due",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.primary,
+                                    Row(
+                                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                                         modifier = Modifier.padding(vertical = 4.dp)
-                                    )
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.PregnantWoman,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Calving due",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
                                 }
                             }
                             items(calvings, key = { "calving_${it.event.id}" }) { item ->
@@ -178,12 +194,23 @@ fun BreedingScreen(
                         if (showPregnancyCheck && pregnancyChecks.isNotEmpty()) {
                             if (filter == AlertsFilter.ALL) {
                                 item(key = "header_preg") {
-                                    Text(
-                                        text = "Pregnancy check due",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.primary,
+                                    Row(
+                                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                                         modifier = Modifier.padding(vertical = 4.dp)
-                                    )
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.PregnantWoman,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Pregnancy check due",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
                                 }
                             }
                             items(pregnancyChecks, key = { "preg_${it.event.id}" }) { item ->
@@ -198,12 +225,23 @@ fun BreedingScreen(
                         if (showWithdrawal && withdrawals.isNotEmpty()) {
                             if (filter == AlertsFilter.ALL) {
                                 item(key = "header_withdrawal") {
-                                    Text(
-                                        text = "Withdrawal ends",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.primary,
+                                    Row(
+                                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                                         modifier = Modifier.padding(vertical = 4.dp)
-                                    )
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.PregnantWoman,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Withdrawal ends",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
                                 }
                             }
                             items(withdrawals, key = { "wd_${it.event.id}" }) { item ->
@@ -219,12 +257,23 @@ fun BreedingScreen(
                         if (showWeaningWeight && weaningWeightDue.isNotEmpty()) {
                             if (filter == AlertsFilter.ALL) {
                                 item(key = "header_weaning") {
-                                    Text(
-                                        text = "Weaning weight due",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.primary,
+                                    Row(
+                                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                                         modifier = Modifier.padding(vertical = 4.dp)
-                                    )
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.PregnantWoman,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Weaning weight due",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
                                 }
                             }
                             items(weaningWeightDue, key = { "weaning_${it.animalId}" }) { item ->
@@ -266,9 +315,9 @@ private fun PregnancyCheckDueCard(
             .clickable(onClick = onClick, role = Role.Button, onClickLabel = "Open $damEarTag, $dueLabel"),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(12.dp)
+        shape = UiDefaults.CardShape
     ) {
-        Column(modifier = Modifier.padding(18.dp)) {
+        Column(modifier = Modifier.padding(UiDefaults.CardInnerPadding)) {
             Text(
                 text = damEarTag,
                 style = MaterialTheme.typography.titleMedium
@@ -311,9 +360,9 @@ private fun WithdrawalDueCard(
             .clickable(onClick = onClick, role = Role.Button, onClickLabel = "Open $earTag, $dueLabel"),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(12.dp)
+        shape = UiDefaults.CardShape
     ) {
-        Column(modifier = Modifier.padding(18.dp)) {
+        Column(modifier = Modifier.padding(UiDefaults.CardInnerPadding)) {
             Text(
                 text = earTag,
                 style = MaterialTheme.typography.titleMedium
@@ -358,9 +407,9 @@ private fun WeaningWeightDueCard(
             .clickable(onClick = onClick, role = Role.Button, onClickLabel = "Open $earTag, $dueLabel"),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(12.dp)
+        shape = UiDefaults.CardShape
     ) {
-        Column(modifier = Modifier.padding(18.dp)) {
+        Column(modifier = Modifier.padding(UiDefaults.CardInnerPadding)) {
             Text(
                 text = earTag,
                 style = MaterialTheme.typography.titleMedium
@@ -403,9 +452,9 @@ private fun GestationCard(
             .clickable(onClick = onClick, role = Role.Button, onClickLabel = "Open $damEarTag, $dueLabel"),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(12.dp)
+        shape = UiDefaults.CardShape
     ) {
-        Column(modifier = Modifier.padding(18.dp)) {
+        Column(modifier = Modifier.padding(UiDefaults.CardInnerPadding)) {
             Text(
                 text = damEarTag,
                 style = MaterialTheme.typography.titleMedium

@@ -264,7 +264,24 @@ export function DashboardProfiles() {
         </div>
       )}
 
-      {allAnimals.length > 0 ? (
+      {loading && allAnimals.length === 0 ? (
+        <section aria-label="Loading herd list" aria-busy="true">
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <li key={i}>
+                <div
+                  className="w-full rounded-card bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-600 p-4 shadow-card animate-pulse"
+                  aria-hidden
+                >
+                  <div className="h-5 w-24 rounded bg-stone-200 dark:bg-stone-600" />
+                  <div className="mt-2 h-4 w-16 rounded bg-stone-200 dark:bg-stone-600" />
+                </div>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-sm text-stone-500 dark:text-stone-400">Loading profiles…</p>
+        </section>
+      ) : allAnimals.length > 0 ? (
         <section aria-label="Herd list">
           <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-stone-600 dark:text-stone-400">

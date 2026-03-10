@@ -1,0 +1,17 @@
+{
+  "$schema": "https://herdmanager.example.com/schemas/solution-registry.json",
+  "description": "Registry of provisioned HerdManager solutions (one per farm). Copy to solution-registry.json and run create-solution.js to add entries. Do not commit solution-registry.json if it contains real project IDs. Optional billing fields (billingCustomerId, plan, billingStatus) for when you integrate a payment provider; see docs/BILLING-IMPLEMENTATION.md.",
+  "solutions": [
+    {
+      "solutionId": "example-farm-01",
+      "farmName": "Example Farm",
+      "firebaseProjectId": "",
+      "webUrl": "https://example.herdmanager.example.com",
+      "bundleId": "com.herdmanager.app",
+      "createdAt": "2025-01-01T00:00:00.000Z",
+      "billingCustomerId": "",
+      "plan": "",
+      "billingStatus": ""
+    }
+  ]
+}

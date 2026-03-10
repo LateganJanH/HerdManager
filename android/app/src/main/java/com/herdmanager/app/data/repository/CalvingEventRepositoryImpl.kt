@@ -51,5 +51,6 @@ private fun CalvingEvent.toEntity() = CalvingEventEntity(
     assistanceRequired = assistanceRequired,
     calfSex = calfSex?.name,
     calfWeight = calfWeight,
-    notes = notes
+    notes = notes,
+    updatedAt = System.currentTimeMillis()
 )

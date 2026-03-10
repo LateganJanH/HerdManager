@@ -19,6 +19,8 @@ Focus: bring the Android app on par with the MVP and with the web dashboard wher
 | **Export** | CSV and PDF export of herd (Herd list → overflow → Export herd to CSV / Export herd to PDF). |
 | **UI** | Jetpack Compose, Material 3, bottom nav (**5 tabs**: Home, Profiles, Alerts, Analytics, Settings), Coil for images |
 | **DI** | Hilt; repositories, ViewModels, DB |
+| **Multi-instance** | BuildConfig `SOLUTION_ID` and `SUPPORT_BASE_URL` (Gradle `-PsolutionId`, `-PsupportBaseUrl`). Settings → About shows **Instance:** solutionId when set, and **Help & support**, **Suggest a feature**, **Report a problem** when support URL is set. See [MULTI-INSTANCE-STRATEGY.md](../docs/MULTI-INSTANCE-STRATEGY.md) §5. |
+| **Updates** | Optional min-version: Firestore `users/{uid}/config/app` `minVersionCode`; if app’s versionCode &lt; min, “Update required” with Open Play Store. In-App Update (immediate flow) tried first when available. Settings → About: **Check for updates** (flexible in-app update). See [MULTI-FARM-AND-UPDATES.md](../docs/architecture/MULTI-FARM-AND-UPDATES.md). |
 
 ### Not yet implemented (MVP gaps)
 
@@ -58,7 +60,7 @@ Focus: bring the Android app on par with the MVP and with the web dashboard wher
    - Implement upload of local changes and download of remote changes; optional “Sync now” and “Last synced” in Settings/Home.
 
 6. **Later (post-MVP)**
-   - AI photo recognition (ML Kit), voice input, health events, pedigree, etc., per main product roadmap.
+   - ~~AI photo recognition (ML Kit), voice input~~ **Done:** Voice input (mic) on ear tag/breed (Register & Edit animal); ML Kit text recognition on photo add (animal detail snackbar). Health events, pedigree, etc., per main product roadmap. **Multi-instance** and **min-version / In-App Update** are implemented; see [NEXT-STEPS.md](../docs/NEXT-STEPS.md) §4 and [MULTI-FARM-AND-UPDATES.md](../docs/architecture/MULTI-FARM-AND-UPDATES.md).
 
 ---
 

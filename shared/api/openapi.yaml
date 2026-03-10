@@ -1,14 +1,49 @@
 openapi: 3.0.3
 info:
   title: HerdManager API
-  description: REST API for HerdManager cattle management system
+  description: |
+    REST API for HerdManager cattle management system.
+    The web dashboard serves GET /api/stats, GET /api/devices, GET /api/health, GET /api/version, and GET /api/instance-config at /api (no version prefix).
+    GET /api/instance-config returns the current instance config (solutionId, supportBaseUrl) for multi-instance deployments.
+    This spec describes a future versioned API; new REST endpoints may use the /api/v1 base path for versioning.
   version: 0.1.0
 
 servers:
   - url: /api/v1
     description: API base path (proxied to Firebase/Cloud Functions)
+  - url: /api
+    description: Next.js dashboard API (instance-config, health, version, stats, devices)
 
 paths:
+  # Versioned API root: GET /api/v1 (discovery; use server /api/v1)
+  /:
+    get:
+      summary: API discovery (v1)
+      description: |
+        Returns the versioned API version and links to endpoints.
+        Served at GET /api/v1 by the Next.js dashboard.
+      responses:
+        '200':
+          description: Version and endpoint paths
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version: { type: string, example: v1 }
+                  description: { type: string }
+                  endpoints: { type: object, additionalProperties: { type: string } }
+                  openapi: { type: string, description: Path to OpenAPI spec }
+  /instance-config:
+    get:
+      summary: Instance config (multi-instance)
+      description: "Returns the current instance (solution) config. Served at GET /api/instance-config by the Next.js dashboard. No auth required."
+      responses:
+        "200":
+          description: Instance config
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InstanceConfigResponse" }
   /devices:
     get:
       summary: List linked field devices
@@ -21,18 +56,20 @@ paths:
               schema: { $ref: '#/components/schemas/LinkedDevicesResponse' }
   /animals:
     get:
-      summary: List animals
-      parameters:
-        - name: farmId
-          in: query
-          required: true
-          schema: { type: string, format: uuid }
-        - name: status
-          in: query
-          schema: { type: string, enum: [ACTIVE, SOLD, DECEASED, CULLED] }
+      summary: List animals (read-only, implemented)
+      description: |
+        Returns the authenticated user's animals from Firestore.
+        Requires Authorization Bearer <Firebase ID token>. Server must have FIREBASE_SERVICE_ACCOUNT_JSON set.
       responses:
         '200':
           description: List of animals
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AnimalsListResponse' }
+        '401':
+          description: Missing or invalid Bearer token
+        '503':
+          description: Firebase Admin not configured or Firestore read failed
     post:
       summary: Create animal
       requestBody:
@@ -73,6 +110,21 @@ paths:
           description: Updated
 
   /breeding-events:
+    get:
+      summary: List breeding events (read-only, implemented)
+      description: |
+        Returns the authenticated user's breeding events from Firestore.
+        Requires Authorization Bearer <Firebase ID token>. Server must have FIREBASE_SERVICE_ACCOUNT_JSON set.
+      responses:
+        '200':
+          description: List of breeding events
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BreedingEventsListResponse' }
+        '401':
+          description: Missing or invalid Bearer token
+        '503':
+          description: Firebase Admin not configured or Firestore read failed
     post:
       summary: Create breeding event
       requestBody:
@@ -94,8 +146,40 @@ paths:
         '201':
           description: Created
 
+  # Phase Later: billing/subscription status (e.g. after Stripe webhooks update registry or backend). Served under /api/v1.
+  /billing-status:
+    get:
+      summary: Billing status for current instance (Phase Later)
+      description: |
+        Optional endpoint for multi-instance deployments. Returns subscription/plan
+        status for the current solution (solutionId). Not implemented yet; when billing
+        is integrated, a backend or webhook handler can set billingStatus/plan in the
+        solution registry or DB and this endpoint can return it.
+      responses:
+        '200':
+          description: Billing status
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BillingStatusResponse' }
+        '501':
+          description: Not implemented (billing not configured)
+
 components:
   schemas:
+    InstanceConfigResponse:
+      type: object
+      description: Current instance (solution) config for multi-instance deployments
+      properties:
+        solutionId: { type: string, description: Unique solution/instance ID }
+        supportBaseUrl: { type: string, description: Base URL for support portal }
+    BillingStatusResponse:
+      type: object
+      description: Billing/subscription status for current instance (Phase Later; not implemented)
+      properties:
+        solutionId: { type: string }
+        plan: { type: string, nullable: true, description: e.g. basic, team, enterprise }
+        billingStatus: { type: string, nullable: true, description: e.g. active, trial, past_due, suspended, cancelled }
+        billingCustomerId: { type: string, nullable: true, description: Payment provider customer ID (e.g. Stripe cus_xxx) }
     LinkedDevice:
       type: object
       required: [id, name, lastSyncAt]
@@ -109,6 +193,12 @@ components:
       required: [devices]
       properties:
         devices: { type: array, items: { $ref: '#/components/schemas/LinkedDevice' } }
+    AnimalsListResponse:
+      type: object
+      description: Response for GET /api/v1/animals (read-only list)
+      required: [animals]
+      properties:
+        animals: { type: array, items: { $ref: '#/components/schemas/Animal' } }
     Animal:
       type: object
       required: [id, earTagNumber, sex, breed, dateOfBirth, farmId, status]
@@ -126,6 +216,27 @@ components:
         status: { enum: [ACTIVE, SOLD, DECEASED, CULLED, ACQUIRED_FROM] }
         sireId: { type: string, format: uuid, nullable: true, description: "Pedigree sire (parent) animal ID" }
         damId: { type: string, format: uuid, nullable: true, description: "Pedigree dam (parent) animal ID" }
+    BreedingEventsListResponse:
+      type: object
+      description: Response for GET /api/v1/breeding-events (read-only list)
+      required: [breedingEvents]
+      properties:
+        breedingEvents: { type: array, items: { $ref: '#/components/schemas/BreedingEventListItem' } }
+    BreedingEventListItem:
+      type: object
+      description: Breeding event in list response (serviceDate as YYYY-MM-DD; sireIds array)
+      properties:
+        id: { type: string }
+        animalId: { type: string }
+        sireIds: { type: array, items: { type: string } }
+        eventType: { type: string }
+        serviceDate: { type: string, format: date }
+        notes: { type: string, nullable: true }
+        pregnancyCheckDateEpochDay: { type: number, nullable: true }
+        pregnancyCheckDate: { type: string, format: date, nullable: true }
+        pregnancyCheckResult: { type: string, nullable: true }
+        createdAt: { type: number, nullable: true }
+        updatedAt: { type: number, nullable: true }
     BreedingEvent:
       type: object
       required: [animalId, eventType, serviceDate]

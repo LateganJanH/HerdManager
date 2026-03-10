@@ -1,0 +1,34 @@
+# Validate solution registry and scripts when scripts/ or example registry change.
+# Uses solution-registry.example.json so no real project IDs are needed in CI.
+name: Scripts CI
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "scripts/**"
+      - ".github/workflows/scripts-ci.yml"
+  pull_request:
+    branches: [main, master]
+    paths:
+      - "scripts/**"
+      - ".github/workflows/scripts-ci.yml"
+
+jobs:
+  validate-registry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Validate solution registry (using example)
+        run: |
+          cp scripts/solution-registry.example.json scripts/solution-registry.json
+          node scripts/validate-registry.js
+
+      - name: List solutions (smoke test)
+        run: node scripts/list-solutions.js --deployable

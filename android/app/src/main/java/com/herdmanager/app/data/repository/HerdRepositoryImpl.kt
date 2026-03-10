@@ -52,9 +52,10 @@ class HerdRepositoryImpl(
         val current = herdAssignmentDao.getCurrentByAnimal(animalId)
         if (current?.herdId == herdId) return
 
+        val now = System.currentTimeMillis()
         if (current != null) {
             herdAssignmentDao.insert(
-                current.copy(removedAt = dateEpochDay, reason = reason)
+                current.copy(removedAt = dateEpochDay, reason = reason, updatedAt = now)
             )
         }
 
@@ -65,7 +66,8 @@ class HerdRepositoryImpl(
                 herdId = herdId,
                 assignedAt = dateEpochDay,
                 removedAt = null,
-                reason = null
+                reason = null,
+                updatedAt = now
             )
         )
 
@@ -86,7 +88,9 @@ private fun Herd.toEntity() = HerdEntity(
     name = name,
     farmId = farmId,
     description = description,
-    sortOrder = sortOrder
+    sortOrder = sortOrder,
+    createdAt = System.currentTimeMillis(),
+    updatedAt = System.currentTimeMillis()
 )
 
 private fun HerdAssignmentEntity.toDomain() = HerdAssignment(

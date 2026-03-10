@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import Link from "next/link";
 import { formatRelativeTime } from "../lib/formatRelativeTime";
 import { isSampleDataEnabled, setSampleDataEnabled, type FarmProfile } from "../lib/mockHerdData";
 import { getTheme, setTheme, subscribeTheme, type Theme } from "../lib/theme";
@@ -10,7 +11,7 @@ import { useHerdStats } from "../lib/useHerdStats";
 import { useLinkedDevices } from "../lib/useLinkedDevices";
 import { getFirebaseDb } from "../lib/firebase";
 import { verifyPhotoSync, type PhotoSyncResult } from "../lib/verifyPhotoSync";
-import { APP_NAME, APP_VERSION } from "../lib/version";
+import { APP_NAME, APP_VERSION, SOLUTION_ID, SUPPORT_BASE_URL } from "../lib/version";
 
 const THEME_OPTIONS: { value: Theme; label: string }[] = [
   { value: "light", label: "Light" },
@@ -18,10 +19,23 @@ const THEME_OPTIONS: { value: Theme; label: string }[] = [
   { value: "system", label: "System (follow device)" },
 ];
 
+type SettingsSection = "farm" | "operations" | "herds" | "sync" | "system" | "data" | "about";
+
+const SETTINGS_SECTIONS: { id: SettingsSection; label: string }[] = [
+  { id: "farm", label: "Farm settings" },
+  { id: "operations", label: "Farm operations" },
+  { id: "herds", label: "Herds" },
+  { id: "sync", label: "Sync settings" },
+  { id: "system", label: "System settings" },
+  { id: "data", label: "Data" },
+  { id: "about", label: "About" },
+];
+
 export function DashboardSettings({ onBack }: { onBack: () => void }) {
   const [sampleEnabled, setSampleEnabled] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [theme, setThemeState] = useState<Theme>("system");
+  const [section, setSection] = useState<SettingsSection>("farm");
   const { user, signOut } = useAuth();
   const { fromApi, dataUpdatedAt } = useHerdStats();
   const { farm, fromApi: farmFromApi, loading: farmLoading, updateFarmSettings } = useFarmSettings();
@@ -34,6 +48,35 @@ export function DashboardSettings({ onBack }: { onBack: () => void }) {
   const [showEditFarm, setShowEditFarm] = useState(false);
   const [editFarm, setEditFarm] = useState<FarmProfile | null>(null);
   const [farmSaveError, setFarmSaveError] = useState<string | null>(null);
+  const [showSpecModal, setShowSpecModal] = useState(false);
+  const [specContent, setSpecContent] = useState<string | null>(null);
+  const [specLoading, setSpecLoading] = useState(false);
+  const [specError, setSpecError] = useState<string | null>(null);
+  const specModalRef = useRef<HTMLDivElement>(null);
+  const closeSpecRef = useRef<HTMLButtonElement>(null);
+
+  const openSpecModal = useCallback(() => {
+    setShowSpecModal(true);
+    setSpecContent(null);
+    setSpecError(null);
+    setSpecLoading(true);
+    fetch("/api/spec")
+      .then((res) => (res.ok ? res.text() : Promise.reject(new Error("Spec not available"))))
+      .then(setSpecContent)
+      .catch(() => setSpecError("Could not load API spec."))
+      .finally(() => setSpecLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (!showSpecModal) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowSpecModal(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    closeSpecRef.current?.focus();
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [showSpecModal]);
+
   const runPhotoSyncCheck = async () => {
     if (!user?.uid) return;
     setPhotoSyncChecking(true);
@@ -81,6 +124,7 @@ export function DashboardSettings({ onBack }: { onBack: () => void }) {
         contacts: farm.contacts?.length ? [...farm.contacts] : [{ name: "", phone: "", email: "" }],
         gestationDays: farm.gestationDays ?? 283,
         weaningAgeDays: farm.weaningAgeDays ?? 200,
+        currencyCode: farm.currencyCode ?? "ZAR",
       });
       setShowEditFarm(true);
       setFarmSaveError(null);
@@ -115,12 +159,43 @@ export function DashboardSettings({ onBack }: { onBack: () => void }) {
         </h2>
       </div>
 
-      <section
+      {/* Section selector */}
+      <nav
+        aria-label="Settings sections"
+        className="mt-2 overflow-x-auto"
+      >
+        <div role="tablist" className="inline-flex gap-2 rounded-full bg-stone-100 dark:bg-stone-800 px-1 py-1">
+          {SETTINGS_SECTIONS.map((s) => {
+            const selected = section === s.id;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                tabIndex={selected ? 0 : -1}
+                onClick={() => setSection(s.id)}
+                className={[
+                  "px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                  selected
+                    ? "bg-white dark:bg-stone-900 text-primary shadow-sm"
+                    : "text-stone-600 dark:text-stone-300 hover:bg-stone-200/60 dark:hover:bg-stone-700/70",
+                ].join(" ")}
+              >
+                {s.label}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
+      {section === "farm" && (
+        <section
         className="rounded-card bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-600 p-5 shadow-card"
         aria-labelledby="farm-heading"
       >
         <h3 id="farm-heading" className="text-lg font-semibold text-stone-900 dark:text-stone-100">
-          Farm &amp; sync
+          Farm settings
         </h3>
         {farmFromApi && (farmLoading ? (
           <p className="mt-2 text-sm text-stone-500 dark:text-stone-400">Loading farm profile…</p>
@@ -146,6 +221,9 @@ export function DashboardSettings({ onBack }: { onBack: () => void }) {
                     Calving alert: {farm.calvingAlertDays} days · Pregnancy check: {farm.pregnancyCheckDaysAfterBreeding} days after breeding
                     {farm.gestationDays != null && ` · Gestation: ${farm.gestationDays} days`}
                     {farm.weaningAgeDays != null && ` · Weaning age: ${farm.weaningAgeDays} days`}
+                  </p>
+                  <p className="mt-1 text-stone-500 dark:text-stone-400">
+                    Currency: {farm.currencyCode ?? "ZAR"} (used for transaction amounts)
                   </p>
                 </div>
                 <button
@@ -275,6 +353,26 @@ export function DashboardSettings({ onBack }: { onBack: () => void }) {
                   />
                 </label>
                 <label className="block text-sm text-stone-600 dark:text-stone-400">
+                  Currency (for transaction amounts)
+                  <select
+                    value={editFarm.currencyCode ?? "ZAR"}
+                    onChange={(e) => setEditFarm({ ...editFarm, currencyCode: e.target.value || "ZAR" })}
+                    className="mt-1 block w-full rounded-button border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 px-3 py-2 text-stone-900 dark:text-stone-100"
+                  >
+                    <option value="ZAR">South African Rand (R)</option>
+                    <option value="USD">US Dollar ($)</option>
+                    <option value="EUR">Euro (€)</option>
+                    <option value="GBP">British Pound (£)</option>
+                    <option value="BWP">Botswana Pula (P)</option>
+                    <option value="NAD">Namibian Dollar (N$)</option>
+                    <option value="AUD">Australian Dollar (A$)</option>
+                    <option value="CAD">Canadian Dollar (C$)</option>
+                    <option value="CHF">Swiss Franc (CHF)</option>
+                    <option value="KES">Kenyan Shilling (KSh)</option>
+                    <option value="NGN">Nigerian Naira (₦)</option>
+                  </select>
+                </label>
+                <label className="block text-sm text-stone-600 dark:text-stone-400">
                   Weaning age (days) — alert when weaning weight is due (150–300, typical 200)
                   <input
                     type="number"
@@ -308,72 +406,48 @@ export function DashboardSettings({ onBack }: { onBack: () => void }) {
             ) : null}
           </div>
         ) : null)}
-        <p className="mt-3 text-stone-600 dark:text-stone-300 text-base">
-          Link multiple phones or tablets running the {APP_NAME} Android app. Sign in with the same account on each device and sync to see them here. The dashboard shows combined herd data from all linked devices.
-        </p>
-        <p className="mt-2 text-sm text-stone-500 dark:text-stone-400">
-          Sync: {fromApi ? "Connected" : "Not configured"}
-          {devices.length > 0 && ` (${devices.length} device${devices.length === 1 ? "" : "s"} linked)`}
-        </p>
-        <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
-          Last synced: {lastSyncedLabel ?? "—"}
-        </p>
-        <div className="mt-4" aria-labelledby="linked-devices-heading">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h4 id="linked-devices-heading" className="text-sm font-medium text-stone-700 dark:text-stone-200">
-              Linked devices ({devices.length})
-            </h4>
-            <button
-              type="button"
-              onClick={() => refetchDevices()}
-              disabled={devicesLoading}
-              className="text-sm text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded disabled:opacity-60"
-              aria-label="Refresh device list"
-            >
-              Refresh
-            </button>
-          </div>
-          {devicesError && (
-            <p className="mt-2 text-sm text-amber-700 dark:text-amber-300" role="alert">
-              Could not load devices.{" "}
-              <button
-                type="button"
-                onClick={() => refetchDevices()}
-                className="underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
-              >
-                Try again
-              </button>
-            </p>
-          )}
-          {!devicesError && devicesLoading && (
-            <p className="mt-2 text-sm text-stone-500 dark:text-stone-400" aria-live="polite">
-              Loading…
-            </p>
-          )}
-          {!devicesError && !devicesLoading && devices.length === 0 && (
-            <p className="mt-2 text-sm text-stone-500 dark:text-stone-400">
-              No devices linked yet. Open the {APP_NAME} Android app on each phone or tablet, sign in with the same account, and sync to link them to this dashboard.
-            </p>
-          )}
-          {!devicesError && !devicesLoading && devices.length > 0 && (
-            <ul className="mt-2 space-y-2 list-none" role="list">
-              {devices.map((d) => (
-                <li
-                  key={d.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-stone-200 dark:border-stone-600 bg-stone-50 dark:bg-stone-700/50 px-3 py-2 text-sm"
-                >
-                  <span className="font-medium text-stone-900 dark:text-stone-100">{d.name}</span>
-                  <span className="text-stone-500 dark:text-stone-400">
-                    Last synced {formatRelativeTime(d.lastSyncAt)}
-                    {d.platform ? ` · ${d.platform}` : ""}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
       </section>
+      )}
 
+      {section === "operations" && (
+        <section
+        className="rounded-card bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-600 p-5 shadow-card"
+        aria-labelledby="operations-heading"
+      >
+        <h3 id="operations-heading" className="text-lg font-semibold text-stone-900 dark:text-stone-100">
+          Farm operations
+        </h3>
+        {farm && !showEditFarm && (
+          <p className="mt-3 text-sm text-stone-600 dark:text-stone-300">
+            Calving alert: {farm.calvingAlertDays} days · Pregnancy check: {farm.pregnancyCheckDaysAfterBreeding} days after breeding
+            {farm.gestationDays != null && ` · Gestation: ${farm.gestationDays} days`}
+            {farm.weaningAgeDays != null && ` · Weaning age: ${farm.weaningAgeDays} days`}
+          </p>
+        )}
+        {!farm && (
+          <p className="mt-3 text-sm text-stone-600 dark:text-stone-300">
+            Configure calving and pregnancy-check reminders, gestation length, and weaning age once farm settings are available.
+          </p>
+        )}
+      </section>
+      )}
+
+      {section === "herds" && (
+        <section
+        className="rounded-card bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-600 p-5 shadow-card"
+        aria-labelledby="herds-heading"
+      >
+        <h3 id="herds-heading" className="text-lg font-semibold text-stone-900 dark:text-stone-100">
+          Herds
+        </h3>
+        <p className="mt-2 text-sm text-stone-600 dark:text-stone-300">
+          Herd creation and management currently live in the Android app (Settings → Farm profile → Herds). This tab will show herd management tools in a future release.
+        </p>
+      </section>
+      )}
+
+      {section === "sync" && (
+        <>
       <section
         className="rounded-card bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-600 p-5 shadow-card"
         aria-labelledby="development-heading"
@@ -426,7 +500,83 @@ export function DashboardSettings({ onBack }: { onBack: () => void }) {
           </label>
         )}
       </section>
+      <section
+        className="rounded-card bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-600 p-5 shadow-card"
+        aria-labelledby="linked-devices-heading"
+      >
+        <h3 id="linked-devices-heading" className="text-lg font-semibold text-stone-900 dark:text-stone-100">
+          Linked devices
+        </h3>
+        <p className="mt-2 text-stone-600 dark:text-stone-300 text-base">
+          Link multiple phones or tablets running the {APP_NAME} Android app. Sign in with the same account on each device and sync to see them here. The dashboard shows combined herd data from all linked devices.
+        </p>
+        <p className="mt-2 text-sm text-stone-500 dark:text-stone-400">
+          Sync: {fromApi ? "Connected" : "Not configured"}
+          {devices.length > 0 && ` (${devices.length} device${devices.length === 1 ? "" : "s"} linked)`}
+        </p>
+        <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
+          Last synced: {lastSyncedLabel ?? "—"}
+        </p>
+        <div className="mt-4" aria-label="Linked devices list">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h4 className="text-sm font-medium text-stone-700 dark:text-stone-200">
+              Devices ({devices.length})
+            </h4>
+            <button
+              type="button"
+              onClick={() => refetchDevices()}
+              disabled={devicesLoading}
+              className="text-sm text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded disabled:opacity-60"
+              aria-label="Refresh device list"
+            >
+              Refresh
+            </button>
+          </div>
+          {devicesError && (
+            <p className="mt-2 text-sm text-amber-700 dark:text-amber-300" role="alert">
+              Could not load devices.{" "}
+              <button
+                type="button"
+                onClick={() => refetchDevices()}
+                className="underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+              >
+                Try again
+              </button>
+            </p>
+          )}
+          {!devicesError && devicesLoading && (
+            <p className="mt-2 text-sm text-stone-500 dark:text-stone-400" aria-live="polite">
+              Loading…
+            </p>
+          )}
+          {!devicesError && !devicesLoading && devices.length === 0 && (
+            <p className="mt-2 text-sm text-stone-500 dark:text-stone-400">
+              No devices linked yet. Open the {APP_NAME} Android app on each phone or tablet, sign in with the same account, and sync to link them to this dashboard.
+            </p>
+          )}
+          {!devicesError && !devicesLoading && devices.length > 0 && (
+            <ul className="mt-2 space-y-2 list-none" role="list">
+              {devices.map((d) => (
+                <li
+                  key={d.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-stone-200 dark:border-stone-600 bg-stone-50 dark:bg-stone-700/50 px-3 py-2 text-sm"
+                >
+                  <span className="font-medium text-stone-900 dark:text-stone-100">{d.name}</span>
+                  <span className="text-stone-500 dark:text-stone-400">
+                    Last synced {formatRelativeTime(d.lastSyncAt)}
+                    {d.platform ? ` · ${d.platform}` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
+      </>
+      )}
 
+      {section === "system" && (
+        <>
       <section
         className="rounded-card bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-600 p-5 shadow-card"
         aria-labelledby="appearance-heading"
@@ -460,25 +610,7 @@ export function DashboardSettings({ onBack }: { onBack: () => void }) {
         )}
       </section>
 
-      <section
-        className="rounded-card bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-600 p-5 shadow-card"
-        aria-labelledby="shortcuts-heading"
-      >
-        <h3 id="shortcuts-heading" className="text-lg font-semibold text-stone-900 dark:text-stone-100">
-          Keyboard shortcuts
-        </h3>
-        <ul className="mt-2 space-y-1 text-base text-stone-600 dark:text-stone-300 list-none">
-          <li><kbd className="rounded bg-stone-200 dark:bg-stone-600 px-1.5 py-0.5 font-mono text-sm">1</kbd>–<kbd className="rounded bg-stone-200 dark:bg-stone-600 px-1.5 py-0.5 font-mono text-sm">5</kbd> — Switch tab (Home, Profiles, Alerts, Analytics, Settings); focus moves to main content</li>
-          <li><kbd className="rounded bg-stone-200 dark:bg-stone-600 px-1.5 py-0.5 font-mono text-sm">Esc</kbd> — Close menu</li>
-          <li>Menu: <strong>Copy link</strong> — Copy current page URL (including tab) to clipboard</li>
-          <li><kbd className="rounded bg-stone-200 dark:bg-stone-600 px-1.5 py-0.5 font-mono text-sm">Tab</kbd> — Move focus (bottom nav, menu, links)</li>
-          <li>First <kbd className="rounded bg-stone-200 dark:bg-stone-600 px-1.5 py-0.5 font-mono text-sm">Tab</kbd> on the page — Skip to main content</li>
-          <li>Scroll to top — Button (↑) appears bottom-right when you scroll down</li>
-          <li>Print — Header and bottom nav are hidden; only main content is printed</li>
-        </ul>
-      </section>
-
-      {isAuthConfigured() && user && (
+      {section === "system" && isAuthConfigured() && user && (
         <section
           className="rounded-card bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-600 p-5 shadow-card"
           aria-labelledby="account-heading"
@@ -498,31 +630,163 @@ export function DashboardSettings({ onBack }: { onBack: () => void }) {
           </button>
         </section>
       )}
+      </>
+      )}
 
-      <section
+      {section === "data" && (
+        <section
         className="rounded-card bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-600 p-5 shadow-card"
-        aria-labelledby="about-heading"
+        aria-labelledby="data-heading"
       >
-        <h3 id="about-heading" className="text-lg font-semibold text-stone-900 dark:text-stone-100">
-          About
+        <h3 id="data-heading" className="text-lg font-semibold text-stone-900 dark:text-stone-100">
+          Data
         </h3>
         <p className="mt-2 text-stone-600 dark:text-stone-300 text-base">
-          {APP_NAME} — modern cattle herd management for the field. Analytics, alerts, and profiles in one place.
-        </p>
-        <p className="mt-2 text-sm text-stone-500 dark:text-stone-400">
-          Web dashboard v{APP_VERSION}
-        </p>
-        <p className="mt-2">
-          <a
-            href="/api/spec"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-primary font-medium hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
-          >
-            API spec (OpenAPI 3)
-          </a>
+          Backup and full data export/import are currently available in the Android app (Settings → Farm profile → Backup/restore). Future versions of the web dashboard may surface these tools here.
         </p>
       </section>
+      )}
+
+      {section === "about" && (
+        <>
+          <section
+            className="rounded-card bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-600 p-5 shadow-card"
+            aria-labelledby="about-heading"
+          >
+            <h3 id="about-heading" className="text-lg font-semibold text-stone-900 dark:text-stone-100">
+              About
+            </h3>
+            <p className="mt-2 text-stone-600 dark:text-stone-300 text-base">
+              {APP_NAME} — modern cattle herd management for the field. Analytics, alerts, and profiles in one place.
+            </p>
+            <p className="mt-2 text-sm text-stone-500 dark:text-stone-400">
+              Web dashboard v{APP_VERSION}
+            </p>
+            {SOLUTION_ID && (
+              <p className="mt-1 text-sm text-stone-500 dark:text-stone-400" data-testid="settings-about-solution-id">
+                Instance: <span className="font-mono">{SOLUTION_ID}</span>
+              </p>
+            )}
+            <p className="mt-2">
+              <button
+                type="button"
+                onClick={openSpecModal}
+                className="text-sm text-primary font-medium hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
+              >
+                API spec (OpenAPI 3)
+              </button>
+              {" · "}
+              <Link
+                href="/changelog"
+                className="text-sm text-primary font-medium hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
+              >
+                Changelog
+              </Link>
+            </p>
+            {SUPPORT_BASE_URL && (
+              <p className="mt-3 text-sm text-stone-600 dark:text-stone-400">
+                <a
+                  href={`${SUPPORT_BASE_URL}${SUPPORT_BASE_URL.includes("?") ? "&" : "?"}solutionId=${encodeURIComponent(SOLUTION_ID || "")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary font-medium hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
+                >
+                  Help &amp; support
+                </a>
+                {" · "}
+                <a
+                  href={`${SUPPORT_BASE_URL}${SUPPORT_BASE_URL.includes("?") ? "&" : "?"}solutionId=${encodeURIComponent(SOLUTION_ID || "")}&topic=suggest`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary font-medium hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
+                >
+                  Suggest a feature
+                </a>
+                {" · "}
+                <a
+                  href={`${SUPPORT_BASE_URL}${SUPPORT_BASE_URL.includes("?") ? "&" : "?"}solutionId=${encodeURIComponent(SOLUTION_ID || "")}&topic=report`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary font-medium hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
+                >
+                  Report a problem
+                </a>
+              </p>
+            )}
+          </section>
+
+          <section
+            className="rounded-card bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-600 p-5 shadow-card"
+            aria-labelledby="shortcuts-heading"
+          >
+            <h3 id="shortcuts-heading" className="text-lg font-semibold text-stone-900 dark:text-stone-100">
+              Keyboard shortcuts
+            </h3>
+            <ul className="mt-2 space-y-1 text-base text-stone-600 dark:text-stone-300 list-none">
+              <li><kbd className="rounded bg-stone-200 dark:bg-stone-600 px-1.5 py-0.5 font-mono text-sm">1</kbd>–<kbd className="rounded bg-stone-200 dark:bg-stone-600 px-1.5 py-0.5 font-mono text-sm">5</kbd> — Switch tab (Home, Profiles, Alerts, Analytics, Settings); focus moves to main content</li>
+              <li><kbd className="rounded bg-stone-200 dark:bg-stone-600 px-1.5 py-0.5 font-mono text-sm">Esc</kbd> — Close menu</li>
+              <li>Menu: <strong>Copy link</strong> — Copy current page URL (including tab) to clipboard</li>
+              <li><kbd className="rounded bg-stone-200 dark:bg-stone-600 px-1.5 py-0.5 font-mono text-sm">Tab</kbd> — Move focus (bottom nav, menu, links)</li>
+              <li>First <kbd className="rounded bg-stone-200 dark:bg-stone-600 px-1.5 py-0.5 font-mono text-sm">Tab</kbd> on the page — Skip to main content</li>
+              <li>Scroll to top — Button (↑) appears bottom-right when you scroll down</li>
+              <li>Print — Header and bottom nav are hidden; only main content is printed</li>
+            </ul>
+          </section>
+        </>
+      )}
+
+      {showSpecModal && (
+        <div
+          ref={specModalRef}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="spec-modal-title"
+          onClick={() => setShowSpecModal(false)}
+        >
+          <div
+            className="rounded-card bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-600 shadow-card max-w-4xl w-full max-h-[90vh] flex flex-col p-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-4 p-4 border-b border-stone-200 dark:border-stone-600 shrink-0">
+              <h3 id="spec-modal-title" className="text-lg font-semibold text-stone-900 dark:text-stone-100">
+                API spec (OpenAPI 3)
+              </h3>
+              <div className="flex items-center gap-3">
+                <a
+                  href="/api/spec"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary font-medium hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
+                >
+                  Open in new tab
+                </a>
+                <button
+                  ref={closeSpecRef}
+                  type="button"
+                  onClick={() => setShowSpecModal(false)}
+                  className="rounded-button border border-stone-300 dark:border-stone-600 px-4 py-2 text-sm font-medium text-stone-800 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+            <div className="p-4 overflow-auto min-h-0 flex-1">
+              {specLoading && (
+                <p className="text-sm text-stone-500 dark:text-stone-400">Loading…</p>
+              )}
+              {specError && (
+                <p className="text-sm text-red-600 dark:text-red-400">{specError}</p>
+              )}
+              {specContent && (
+                <pre className="text-xs text-stone-700 dark:text-stone-300 whitespace-pre-wrap font-mono break-words">
+                  {specContent}
+                </pre>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

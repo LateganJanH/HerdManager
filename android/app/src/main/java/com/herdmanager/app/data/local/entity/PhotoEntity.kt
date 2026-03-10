@@ -25,5 +25,6 @@ data class PhotoEntity(
     val uri: String,
     val capturedAt: Long,
     val latitude: Double? = null,
-    val longitude: Double? = null
+    val longitude: Double? = null,
+    val updatedAt: Long = 0L
 )

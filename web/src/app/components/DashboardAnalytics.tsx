@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useMemo } from "react";
 import { jsPDF } from "jspdf";
+import * as XLSX from "xlsx";
 import { seriesFromStats } from "../lib/analyticsSeries";
 import { formatRelativeTime } from "../lib/formatRelativeTime";
 import { getMockAnalyticsSeries, getMockEventsByMonth, isSampleDataEnabled } from "../lib/mockHerdData";
@@ -38,6 +39,12 @@ function downloadCsvReport(stats: HerdStats, series: AnalyticsSeries[]) {
   rows.push(["Calvings this year", String(stats.calvingsThisYear)]);
   rows.push(["Breeding events this year", String(stats.breedingEventsThisYear)]);
   rows.push(["Open / pregnant", String(stats.openPregnant)]);
+  if (typeof stats.avgDailyGainAllKgPerDay === "number") {
+    rows.push(["Avg daily gain (all, kg/day)", stats.avgDailyGainAllKgPerDay.toFixed(2)]);
+  }
+  if (typeof stats.avgWeaningWeightKg === "number") {
+    rows.push(["Avg weaning weight (kg)", stats.avgWeaningWeightKg.toFixed(1)]);
+  }
   rows.push([]);
   rows.push(["By status", "Count"]);
   for (const [name, count] of Object.entries(stats.byStatus)) {
@@ -148,6 +155,70 @@ function downloadPdfReport(stats: HerdStats, series: AnalyticsSeries[]) {
   doc.save(`herd-report-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
+type EventsByMonth = { calvingsByMonth: number[]; breedingByMonth: number[] } | null;
+
+function downloadExcelReport(
+  stats: HerdStats,
+  series: AnalyticsSeries[],
+  eventsByMonth: EventsByMonth
+) {
+  const wb = XLSX.utils.book_new();
+  const dateStr = new Date().toISOString().slice(0, 10);
+
+  const summaryRows: (string | number)[][] = [
+    ["Herd summary", ""],
+    ["Total animals", stats.totalAnimals],
+    ["Due soon", stats.dueSoon],
+    ["Calvings this year", stats.calvingsThisYear],
+    ["Breeding events this year", stats.breedingEventsThisYear],
+    ["Open / pregnant", stats.openPregnant],
+  ];
+  if (typeof stats.avgDailyGainAllKgPerDay === "number") {
+    summaryRows.push(["Avg daily gain (all, kg/day)", Number(stats.avgDailyGainAllKgPerDay.toFixed(2))]);
+  }
+  if (typeof stats.avgWeaningWeightKg === "number") {
+    summaryRows.push(["Avg weaning weight (kg)", Number(stats.avgWeaningWeightKg.toFixed(1))]);
+  }
+  XLSX.utils.book_append_sheet(
+    wb,
+    XLSX.utils.aoa_to_sheet(summaryRows),
+    "Summary"
+  );
+
+  const byStatusRows: (string | number)[][] = [["By status", "Count"], ...Object.entries(stats.byStatus).map(([name, count]) => [name, count])];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(byStatusRows), "By status");
+
+  const bySexRows: (string | number)[][] = [["By sex", "Count"], ...Object.entries(stats.bySex).map(([name, count]) => [name, count])];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(bySexRows), "By sex");
+
+  if (stats.byCategory) {
+    const byCatRows: (string | number)[][] = [
+      ["By category", "Count"],
+      ["Calves", stats.byCategory.Calves],
+      ["Heifers", stats.byCategory.Heifers],
+      ["Cows", stats.byCategory.Cows],
+      ["Bulls", stats.byCategory.Bulls],
+      ["Steers", stats.byCategory.Steers],
+    ];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(byCatRows), "By category");
+  }
+
+  if (series.length > 0) {
+    const seriesRows: (string | number)[][] = [["Analytics (by status)", "Value"], ...series.map((s) => [s.label, s.value])];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(seriesRows), "Analytics");
+  }
+
+  if (eventsByMonth) {
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const calvingsRows: (string | number)[][] = [["Month", "Calvings"], ...months.map((m, i) => [m, eventsByMonth.calvingsByMonth[i] ?? 0])];
+    const breedingRows: (string | number)[][] = [["Month", "Breeding events"], ...months.map((m, i) => [m, eventsByMonth.breedingByMonth[i] ?? 0])];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(calvingsRows), "Calvings by month");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(breedingRows), "Breeding by month");
+  }
+
+  XLSX.writeFile(wb, `herd-report-${dateStr}.xlsx`);
+}
+
 export function DashboardAnalytics() {
   const pathname = usePathname();
   const { stats, fromApi, loading, isError, dataUpdatedAt, refetch } = useHerdStats();
@@ -182,6 +253,9 @@ export function DashboardAnalytics() {
   const handleExportPdf = useCallback(() => {
     downloadPdfReport(stats, series);
   }, [stats, series]);
+  const handleExportExcel = useCallback(() => {
+    downloadExcelReport(stats, series, eventsByMonthForCharts ?? null);
+  }, [stats, series, eventsByMonthForCharts]);
   const dataSourceLabel = loading ? "Loading…" : fromApi ? "From API" : sample ? "Sample data" : "Connect app to sync";
 
   return (
@@ -193,9 +267,28 @@ export function DashboardAnalytics() {
         Herd summaries and status breakdown. Data visualisation for quick reading on mobile and desktop.
       </p>
       {loading && (
-        <p className="text-sm text-stone-500 dark:text-stone-400" aria-live="polite">
+        <p className="text-sm text-stone-500 dark:text-stone-400 sr-only" aria-live="polite">
           Loading stats…
         </p>
+      )}
+      {loading && (
+        <section
+          className="rounded-card bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-600 p-5 shadow-card animate-pulse"
+          aria-label="Loading analytics"
+        >
+          <h3 className="text-lg font-semibold text-stone-300 dark:text-stone-500 mb-4">
+            By status &amp; sex
+          </h3>
+          <div className="space-y-3">
+            {[40, 70, 55, 85, 60].map((widthPct, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <span className="w-24 h-4 rounded bg-stone-200 dark:bg-stone-600 shrink-0" aria-hidden />
+                <div className="flex-1 h-6 rounded-full bg-stone-200 dark:bg-stone-600 overflow-hidden min-w-[40px]" aria-hidden />
+                <span className="w-8 h-4 rounded bg-stone-200 dark:bg-stone-600 shrink-0" aria-hidden />
+              </div>
+            ))}
+          </div>
+        </section>
       )}
       {isError && !fromApi && (
         <div
@@ -230,7 +323,7 @@ export function DashboardAnalytics() {
         </button>
       </div>
 
-      {series.length > 0 ? (
+      {!loading && series.length > 0 ? (
         <section
           className="rounded-card bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-600 p-5 shadow-card"
           aria-label="Status and sex breakdown chart"
@@ -480,6 +573,23 @@ export function DashboardAnalytics() {
         <p className="text-stone-600 dark:text-stone-300 text-base mt-1">
           This year: <strong>{stats.breedingEventsThisYear}</strong> breeding events · <strong>{stats.calvingsThisYear}</strong> calvings
         </p>
+        {(typeof stats.avgDailyGainAllKgPerDay === "number" || typeof stats.avgWeaningWeightKg === "number") && (
+          <p className="text-stone-600 dark:text-stone-300 text-base mt-1">
+            {typeof stats.avgDailyGainAllKgPerDay === "number" && (
+              <>
+                Avg daily gain (all):{" "}
+                <strong>{stats.avgDailyGainAllKgPerDay.toFixed(2)} kg/day</strong>
+              </>
+            )}
+            {typeof stats.avgDailyGainAllKgPerDay === "number" && typeof stats.avgWeaningWeightKg === "number" && " · "}
+            {typeof stats.avgWeaningWeightKg === "number" && (
+              <>
+                Avg weaning weight:{" "}
+                <strong>{stats.avgWeaningWeightKg.toFixed(1)} kg</strong>
+              </>
+            )}
+          </p>
+        )}
         {!fromApi && !sample && (
           <p className="mt-2 text-sm text-stone-500 dark:text-stone-400">
             Connect the {APP_NAME} Android app and sync to see analytics here.
@@ -492,7 +602,7 @@ export function DashboardAnalytics() {
           Export
         </h3>
         <p className="text-stone-600 dark:text-stone-300 text-base mb-3">
-          Download herd summary and analytics as CSV or PDF. Uses current dashboard data (sample or synced).
+          Download herd summary and analytics as CSV, Excel, or PDF. Uses current dashboard data (sample or synced).
         </p>
         <div className="flex flex-wrap gap-2">
           <button
@@ -501,6 +611,13 @@ export function DashboardAnalytics() {
             className="rounded-button border border-stone-300 dark:border-stone-600 px-4 py-2 text-sm font-medium text-stone-800 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             Export report (CSV)
+          </button>
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            className="rounded-button border border-stone-300 dark:border-stone-600 px-4 py-2 text-sm font-medium text-stone-800 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            Export report (Excel)
           </button>
           <button
             type="button"

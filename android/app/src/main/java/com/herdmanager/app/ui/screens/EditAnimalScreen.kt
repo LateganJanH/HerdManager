@@ -48,6 +48,7 @@ import com.herdmanager.app.domain.model.Herd
 import com.herdmanager.app.domain.model.HornStatus
 import com.herdmanager.app.domain.model.Sex
 import com.herdmanager.app.ui.components.DatePickerDialog
+import com.herdmanager.app.ui.components.VoiceInputButton
 import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -176,7 +177,8 @@ fun EditAnimalScreen(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 isError = earTagError != null,
-                supportingText = earTagError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } }
+                supportingText = earTagError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
+                trailingIcon = { VoiceInputButton(onResult = { earTag = it; error = null }) }
             )
             Spacer(modifier = Modifier.height(12.dp))
             OutlinedTextField(

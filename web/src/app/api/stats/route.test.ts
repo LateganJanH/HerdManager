@@ -4,8 +4,10 @@ import { isValidStats } from "@/app/lib/herdStatsValidation";
 import { SAMPLE_STATS_DATA } from "@/app/lib/sampleStatsData";
 
 describe("GET /api/stats", () => {
+  const noAuthRequest = new Request("http://localhost/api/stats");
+
   it("returns 200 with valid herd stats shape", async () => {
-    const res = await GET();
+    const res = await GET(noAuthRequest);
     expect(res.status).toBe(200);
 
     const data = await res.json();
@@ -13,13 +15,13 @@ describe("GET /api/stats", () => {
   });
 
   it("returns shared sample stats (single source of truth)", async () => {
-    const res = await GET();
+    const res = await GET(noAuthRequest);
     const data = await res.json();
     expect(data).toEqual(SAMPLE_STATS_DATA);
   });
 
   it("returns stats with required number fields", async () => {
-    const res = await GET();
+    const res = await GET(noAuthRequest);
     const data = await res.json();
 
     expect(typeof data.totalAnimals).toBe("number");

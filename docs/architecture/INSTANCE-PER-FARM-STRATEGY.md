@@ -37,6 +37,17 @@ Each sold instance consists of:
 
 **Single codebase:** You maintain one HerdManager repo. Instance-specific values are injected at **build time** (e.g. product flavours, env files) or at **runtime** (e.g. config fetched from a manifest URL or from your provisioning system).
 
+### 2.1 Unique instance/solution identifier
+
+Every provisioned HerdManager Solution must have a **stable, unique identifier** (e.g. `solutionId` or `instanceId`) assigned at creation. This ID:
+
+- **Uniquely identifies** the deployment across its lifetime (Firebase project, web URL, or bundle ID may change; the solution ID does not).
+- **Keys the solution registry** (`solutions/{solutionId}`) and any ops, billing, or support systems.
+- **Can be embedded** in instance config (e.g. `NEXT_PUBLIC_SOLUTION_ID` or in the app’s runtime config) so the app and support portal can send feedback, support requests, or telemetry tagged with this ID.
+- **Simplifies automation** (scripts, CI, billing) that loop over “all instances” or look up a customer by solution ID.
+
+Use a format that is URL- and DB-friendly (e.g. UUID, or a short slug like `acme-farm-01`). Generate and store it in the solution registry as soon as the solution is created (e.g. step 0 in the provisioning checklist).
+
 ---
 
 ## 3. Provisioning a new HerdManager Solution (onboarding a new farm)
@@ -46,6 +57,7 @@ When you sign a new customer (farm), you need a repeatable process to create the
 ### 3.1 Checklist per new solution
 
 1. **Create Firebase project** (or use a script/template).
+   - **Assign a unique solution/instance ID** (e.g. UUID or slug) and record it in the solution registry. Use this ID everywhere (registry, billing, support).
    - Enable Auth (Email/Password).
    - Create Firestore DB; deploy security rules (same rules, different project).
    - Enable Storage if needed for photos.
@@ -60,8 +72,9 @@ When you sign a new customer (farm), you need a repeatable process to create the
 
 ### 3.2 Automation (recommended)
 
+- **Runbook:** For a repeatable manual flow (create project → register → deploy rules/functions → web env → deploy web), see [PROVISIONING-RUNBOOK.md](../PROVISIONING-RUNBOOK.md). Use `provision-instance.js <solutionId> [--deploy-rules] [--deploy-functions]` after the Firebase project exists.
 - **Script or IaC** (e.g. Firebase CLI + scripts, or Terraform/Pulumi for GCP/Firebase) to create project, enable APIs, deploy rules and indexes.
-- **Solution registry:** Your own small DB or config store (e.g. `solutions/{solutionId}` with `firebaseProjectId`, `webUrl`, `bundleId`, `farmName`) for support and ops. Not used at runtime by the app; for you only.
+- **Solution registry:** Your own small DB or config store (e.g. `solutions/{solutionId}` with `solutionId` (unique instance ID), `firebaseProjectId`, `webUrl`, `bundleId`, `farmName`, `createdAt`) for support, ops, and billing. Not used at runtime by the app for core behaviour; can be referenced by support portal or config endpoint. See §2.1.
 - **Build pipeline:** From one codebase, build Android variants (flavours) or web envs per solution (or per cohort) so releases are reproducible.
 
 ---
@@ -103,22 +116,61 @@ You have one codebase and many HerdManager Solutions. Updates should be consiste
 |------|----------------|
 | **Backups** | Firestore backups (scheduled exports or Point-in-Time Recovery) per Firebase project. Retain per your SLA. |
 | **Monitoring** | Per-project metrics (Auth, Firestore, Storage) and alerts. Optional: central dashboard that aggregates health across instances (you only). |
-| **Support** | Each customer has a known instance (URL + project ID). Support can look at that instance’s data (with access controls) without touching others. |
+| **Support** | Each customer has a known instance (solution ID + URL + project ID). Support can look at that instance’s data (with access controls) without touching others. |
 | **Security** | Same Firestore rules everywhere. Rotate any shared admin or CI keys; prefer per-project or least-privilege service accounts. |
 | **Incidents** | Isolate impact: an issue in one instance doesn’t affect others. Rollback or fix can be per-instance. |
 
 ---
 
-## 7. Pricing and packaging (vendor view)
+## 6.1 Support, feedback, and improvement channels (instance owner/user)
 
-- **Per–HerdManager Solution subscription** (per farm) is the natural unit. Tiers can be based on herd size, number of users, or feature set (e.g. basic vs. premium support or extra modules).
-- **One-off setup fee** can cover provisioning and optional white-label.
-- **Updates and support:** Included in subscription; you push one version to all solutions (or to a cohort) and support one codebase.
+Instance owners and users need clear ways to **suggest improvements**, **report issues**, and **access solution support**. This keeps the product aligned with real use and reduces friction for paying customers.
+
+| Need | Approach |
+|------|----------|
+| **Suggest improvements** | In-app or web: “Suggest a feature” or “Feedback” link (e.g. in Settings → About or footer) that opens a form or redirects to a support portal. Submissions are tagged with the instance’s **solution ID** (and optionally user/contact) so you can prioritise and track by customer. |
+| **Report issues** | “Report a problem” or “Contact support” in the app and web dashboard, again keyed by solution ID. Optionally capture app version, platform, and a short description so support (or an AI agent) can triage. |
+| **Access support** | Single entry point: e.g. “Help & support” in the app and web that leads to a **support portal** or help centre. The portal URL can be instance-aware (e.g. `support.yourproduct.com?solutionId=...`) so context is pre-filled. |
+
+**Future: AI support agent / support desk.** The intention is to introduce an **AI-powered support agent** for the solution — a first-line support desk that can answer common questions, guide users through flows, and collect structured issue reports, all scoped to the instance (solution ID). The agent can hand off to human support when needed. Design support flows and data (e.g. FAQs, runbooks, conversation logs) so they can be wired to an AI support layer later without changing the instance model.
+
+---
+
+## 7. Billing and procurement strategy (effortless income stream)
+
+A clear billing and procurement model turns each instance into a **predictable, low-friction income stream** and makes scaling manageable.
+
+### 7.1 Subscription as the core income
+
+- **Recurring subscription** per instance (per farm), billed monthly or annually. This is the primary revenue; one active instance = one paying subscription.
+- **Tiers** (optional): e.g. **Basic** (single user, core features), **Team** (multiple users, full features), **Enterprise** (white-label, SLA, dedicated support). Price by herd size, number of users, or feature set.
+- **One-off setup fee** (optional): Covers provisioning and optional white-label; paid at onboarding. Keeps base subscription focused on software and support.
+
+### 7.2 Procurement flow (sign-up → provision → billing)
+
+1. **Lead / sign-up:** Customer signs up (web form, sales, or partner). Capture contact, farm name, and chosen plan.
+2. **Provision:** Create the solution (assign **solution ID**, create Firebase project, deploy web, ship app) using the checklist in §3.1. Link the solution ID to the customer and plan in your billing system.
+3. **Go-live and first invoice:** Hand off credentials and URLs; start subscription billing from go-live (or after a short trial). Invoice by solution ID so each instance maps to one billing account.
+4. **Renewals:** Automatic renewal (monthly or annual) with payment retry and dunning (e.g. email reminders, then suspend access if unpaid). Minimise manual steps so revenue continues without per-customer effort.
+
+### 7.3 Payment and billing systems
+
+- **Payment provider:** Use a subscription-aware provider (e.g. **Stripe**, Paddle, or your region’s equivalent) for cards, direct debit, or invoices. Stripe (or similar) gives you products/prices, customer per solution ID, and automatic recurring billing.
+- **Billing entity:** One billing customer per solution ID (or per legal entity if one customer has multiple farms). Keeps reporting simple: revenue per instance, MRR/ARR, churn per solution.
+- **Usage-based add-ons (optional):** If you add usage-based features later (e.g. extra storage, API calls), meter by solution ID and add to the same subscription or invoice. Enables effortless upsell without new contracts.
+
+### 7.4 Effortless income in practice
+
+- **Automate provisioning** so new sign-ups become billable instances with minimal manual work (§3.2).
+- **Automate renewals and dunning** so you don’t chase payments by hand; failed payments trigger emails and, after a grace period, suspend access (e.g. via min-version or auth).
+- **Single source of truth:** Solution registry + billing system both keyed by solution ID. One place to see “this instance is on Plan X, paid until Y.”
+- **Scaling:** More instances = more subscriptions; same codebase and same billing logic. Optional: partner or reseller channel where partners bring customers and you bill the partner or the end customer; solution ID still identifies each deployment.
 
 ---
 
 ## 8. Relation to other docs
 
+- **Multi-instance documentation index:** [MULTI-INSTANCE-STRATEGY.md](../MULTI-INSTANCE-STRATEGY.md) (in `docs/`) is the entry point for all multi-instance strategy docs; it summarises this strategy and lists every related document.
 - **Data and sync within one instance:** Current app and [SYNC-DESIGN.md](SYNC-DESIGN.md) apply **inside** each instance (multi-device merge, central vs field data). No change to data model for “one farm per instance” — you already have a single logical farm per app.
 - **Multi-tenant Option A:** Only relevant if a **single customer** (e.g. large enterprise) asks for multiple farms in one instance with farm switcher. Then you’d add tenant/farm ID and membership to that instance only. Default product remains: one instance per farm.
 - **Software update details:** Concrete practices (versioning, In-App Update, min version, changelog) are in [MULTI-FARM-AND-UPDATES.md](MULTI-FARM-AND-UPDATES.md) § Software updates; apply them per instance or across all instances as above.
@@ -130,10 +182,13 @@ You have one codebase and many HerdManager Solutions. Updates should be consiste
 | Decision | Choice for “sell instance per farm” |
 |----------|-------------------------------------|
 | **Unit of sale** | One instance = one farm (customer). |
+| **Instance ID** | Unique, stable identifier per solution (solutionId/instanceId); assigned at creation; used in registry, billing, support, and config. |
 | **Isolation** | One Firebase project + one web deploy + one app config (or build) per instance. |
 | **Codebase** | Single HerdManager repo; instance-specific config at build or runtime. |
-| **Provisioning** | Repeatable checklist + automation (Firebase + web deploy + optional Android flavour). |
+| **Provisioning** | Repeatable checklist + automation (assign solution ID, Firebase + web deploy + optional Android flavour). |
 | **Branding** | Optional white-label per instance (name, logo, domain). |
+| **Billing** | Recurring subscription per instance (keyed by solution ID); payment provider (e.g. Stripe); automated renewals and dunning; optional setup fee and tiers. |
+| **Support & feedback** | In-app/web: suggest improvements, report issues, access support (all tagged with solution ID). Future: AI support agent as first-line support desk. |
 | **Updates** | One version; deploy to all instances (or by cohort); min-version and In-App Update for Android. |
 | **Ops** | Backups, monitoring, and support per instance; same rules and code everywhere. |
 

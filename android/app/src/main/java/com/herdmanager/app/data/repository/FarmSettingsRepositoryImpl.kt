@@ -6,7 +6,6 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.herdmanager.app.domain.model.FarmContact
 import com.herdmanager.app.domain.model.FarmSettings
@@ -29,6 +28,7 @@ private val KEY_CALVING_ALERT_DAYS = intPreferencesKey("calving_alert_days")
 private val KEY_PREGNANCY_CHECK_DAYS = intPreferencesKey("pregnancy_check_days")
 private val KEY_GESTATION_DAYS = intPreferencesKey("gestation_days")
 private val KEY_WEANING_AGE_DAYS = intPreferencesKey("weaning_age_days")
+private val KEY_CURRENCY_CODE = stringPreferencesKey("currency_code")
 
 class FarmSettingsRepositoryImpl @Inject constructor(
     @param:ApplicationContext private val context: Context
@@ -57,7 +57,8 @@ class FarmSettingsRepositoryImpl @Inject constructor(
                 pregnancyCheckDaysAfterBreeding = prefs[KEY_PREGNANCY_CHECK_DAYS]
                     ?: FarmSettings.DEFAULT_PREGNANCY_CHECK_DAYS,
                 gestationDays = prefs[KEY_GESTATION_DAYS] ?: FarmSettings.DEFAULT_GESTATION_DAYS,
-                weaningAgeDays = prefs[KEY_WEANING_AGE_DAYS] ?: FarmSettings.DEFAULT_WEANING_AGE_DAYS
+                weaningAgeDays = prefs[KEY_WEANING_AGE_DAYS] ?: FarmSettings.DEFAULT_WEANING_AGE_DAYS,
+                currencyCode = prefs[KEY_CURRENCY_CODE] ?: FarmSettings.DEFAULT_CURRENCY_CODE
             )
         }
 
@@ -70,6 +71,7 @@ class FarmSettingsRepositoryImpl @Inject constructor(
             prefs[KEY_PREGNANCY_CHECK_DAYS] = settings.pregnancyCheckDaysClamped()
             prefs[KEY_GESTATION_DAYS] = settings.gestationDaysClamped()
             prefs[KEY_WEANING_AGE_DAYS] = settings.weaningAgeDaysClamped()
+            prefs[KEY_CURRENCY_CODE] = settings.currencyCode.ifBlank { FarmSettings.DEFAULT_CURRENCY_CODE }
         }
     }
 

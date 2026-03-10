@@ -61,6 +61,15 @@ test.describe("Dashboard", () => {
     await expect(page.getByRole("button", { name: "Profiles" })).toHaveAttribute("aria-current", "page");
   });
 
+  test("keyboard shortcut 5 switches to Settings tab", async ({ page }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("main")).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("main").click();
+    await page.keyboard.press("5");
+    await expect(page).toHaveURL(/\?tab=settings/, { timeout: 5_000 });
+    await expect(page.getByRole("button", { name: "Settings" })).toHaveAttribute("aria-current", "page");
+  });
+
   test("opens Settings from menu and shows Settings content", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await page.getByRole("button", { name: "Open menu" }).click();
@@ -70,18 +79,76 @@ test.describe("Dashboard", () => {
     await expect(page.getByRole("heading", { level: 3, name: "Appearance" })).toBeVisible();
   });
 
-  test("Settings About section has API spec link and spec is served", async ({ page, request }) => {
+  test("Settings About section has API spec option and spec is served", async ({ page, request }) => {
     await page.goto("/?tab=settings", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { level: 2, name: "Settings" })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole("heading", { level: 3, name: "About" })).toBeVisible();
-    const apiSpecLink = page.getByRole("link", { name: "API spec (OpenAPI 3)" });
-    await expect(apiSpecLink).toBeVisible();
-    await expect(apiSpecLink).toHaveAttribute("href", "/api/spec");
+    const apiSpecButton = page.getByRole("button", { name: "API spec (OpenAPI 3)" });
+    await expect(apiSpecButton).toBeVisible();
+    await apiSpecButton.click();
+    await expect(page.getByRole("dialog", { name: "API spec (OpenAPI 3)" })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole("button", { name: "Close" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Open in new tab" })).toHaveAttribute("href", "/api/spec");
     const specRes = await request.get(new URL("/api/spec", page.url()).toString());
     expect(specRes.ok()).toBe(true);
     const body = await specRes.text();
     expect(body).toContain("openapi:");
     expect(body).toContain("HerdManager API");
+    await page.getByRole("button", { name: "Close" }).click();
+    await expect(page.getByRole("dialog", { name: "API spec (OpenAPI 3)" })).not.toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Settings" })).toBeVisible();
+  });
+
+  test("GET /api/version returns version for New version available check", async ({ page, request }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    const res = await request.get(new URL("/api/version", page.url()).toString());
+    expect(res.ok()).toBe(true);
+    const data = (await res.json()) as { version: string };
+    expect(typeof data.version).toBe("string");
+    expect(data.version.length).toBeGreaterThan(0);
+  });
+
+  test("GET /api/instance-config returns instance config (multi-instance)", async ({ page, request }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    const res = await request.get(new URL("/api/instance-config", page.url()).toString());
+    expect(res.ok()).toBe(true);
+    const data = (await res.json()) as { solutionId: string; supportBaseUrl: string };
+    expect(typeof data.solutionId).toBe("string");
+    expect(typeof data.supportBaseUrl).toBe("string");
+  });
+
+  test("Settings About shows Web dashboard version", async ({ page }) => {
+    await page.goto("/?tab=settings", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { level: 3, name: "About" })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/Web dashboard v[\d.]+/)).toBeVisible();
+  });
+
+  test("Settings About Changelog link opens changelog page", async ({ page }) => {
+    await page.goto("/?tab=settings", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { level: 3, name: "About" })).toBeVisible({ timeout: 15_000 });
+    const changelogLink = page.getByRole("link", { name: "Changelog" });
+    await expect(changelogLink).toBeVisible();
+    await expect(changelogLink).toHaveAttribute("href", "/changelog");
+    await changelogLink.click();
+    await expect(page).toHaveURL(/\/changelog/, { timeout: 5000 });
+    await expect(page.getByRole("heading", { level: 1, name: "Changelog" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Back to Settings" })).toBeVisible();
+    await expect(page.getByText(/Release notes for the/)).toBeVisible();
+  });
+
+  test("Support page shows instance and topic when passed in URL", async ({ page }) => {
+    await page.goto("/support?solutionId=test-instance-01&topic=report", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { level: 1, name: "Help & support" })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId("support-solution-id")).toContainText("test-instance-01");
+    await expect(page.getByRole("heading", { level: 2, name: "Report a problem" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Back to dashboard" })).toBeVisible();
+  });
+
+  test("Support page shows Get help when no query params", async ({ page }) => {
+    await page.goto("/support", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { level: 1, name: "Help & support" })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "Get help" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Back to dashboard" })).toBeVisible();
   });
 
   test("toggles theme in Settings", async ({ page }) => {
@@ -140,6 +207,7 @@ test.describe("Dashboard", () => {
     await expect(page.getByRole("heading", { level: 3, name: "Summary" })).toBeVisible();
     await expect(page.getByRole("heading", { level: 3, name: "Export" })).toBeVisible();
     await expect(page.getByRole("button", { name: /Export report \(CSV\)/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Export report \(Excel\)/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /Export report \(PDF\)/ })).toBeVisible();
   });
 

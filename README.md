@@ -69,11 +69,14 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for how to report issues, submit changes,
 ## Documentation
 
 - [Next steps](docs/NEXT-STEPS.md) – prioritized roadmap after MVP (web–Firestore, polish, tests)
+- [Phase Later roadmap](docs/PHASE-LATER-ROADMAP.md) – next steps for billing, sync, instance ops
 - [Pre-release checklist](docs/RELEASE-CHECKLIST.md) – versioning, changelog, tagging, and deploy
-- [Firestore sync walkthrough](docs/FIREBASE-SYNC-WALKTHROUGH.md) – connect Android and web to one Firebase project
+- [Changelog](CHANGELOG.md) – root changelog (links to web/CHANGELOG and Android version)
+- [Firestore sync walkthrough](docs/FIREBASE-SYNC-WALKTHROUGH.md) – connect Android and web to one Firebase project (step-by-step: rules, sign-in, sync; same data on both)
 - [GitHub sync](docs/GITHUB-SYNC.md) – connect this repo to GitHub and push/pull
 - [Security](SECURITY.md) – reporting vulnerabilities and secure development
 - [Architecture Overview](docs/architecture/ARCHITECTURE.md)
+- [Multi-instance strategy (doc index)](docs/MULTI-INSTANCE-STRATEGY.md) – one instance per farm: strategy overview, solution ID, provisioning, billing, support/feedback, AI support (planning). Provisioning scripts in repo root `scripts/`: `create-solution.js`, `update-solution.js`, `env-for-solution.js`, `list-solutions.js`, `validate-registry.js` (see §5). **Billing (Phase Later):** [BILLING-IMPLEMENTATION.md](docs/BILLING-IMPLEMENTATION.md) — link solutionId to Stripe (or equivalent), registry fields, webhooks.
 - [Data Model](docs/architecture/DATA-MODEL.md)
 - [MVP Definition](docs/architecture/MVP-DEFINITION.md)
 - [API Specification](shared/api/)

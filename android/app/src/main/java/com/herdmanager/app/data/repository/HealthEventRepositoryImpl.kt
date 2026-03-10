@@ -51,5 +51,6 @@ private fun HealthEvent.toEntity() = HealthEventEntity(
     product = product,
     dosage = dosage,
     withdrawalPeriodEnd = withdrawalPeriodEnd?.toEpochDay(),
-    notes = notes
+    notes = notes,
+    updatedAt = System.currentTimeMillis()
 )

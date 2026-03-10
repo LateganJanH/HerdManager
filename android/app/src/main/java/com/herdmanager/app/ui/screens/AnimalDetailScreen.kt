@@ -25,8 +25,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -35,13 +37,16 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.herdmanager.app.domain.model.Animal
@@ -57,6 +62,7 @@ import com.herdmanager.app.ui.components.PhotosSection
 import com.herdmanager.app.ui.components.RecordCalvingDialog
 import com.herdmanager.app.ui.components.RecordPregnancyCheckDialog
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,6 +82,7 @@ fun AnimalDetailScreen(
     val gestationDays by viewModel.gestationDays.collectAsState(initial = com.herdmanager.app.domain.model.FarmSettings.DEFAULT_GESTATION_DAYS)
     val healthEvents by viewModel.healthEvents.collectAsState(initial = emptyList())
     val weightRecords by viewModel.weightRecords.collectAsState(initial = emptyList())
+    val growthSummary by viewModel.growthSummary.collectAsState(initial = null)
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showTransferHerd by remember { mutableStateOf(false) }
     var showAddHealthEvent by remember { mutableStateOf(false) }
@@ -83,6 +90,11 @@ fun AnimalDetailScreen(
     var healthEventToEdit by remember { mutableStateOf<HealthEvent?>(null) }
     var weightRecordToEdit by remember { mutableStateOf<WeightRecord?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val clipboard = remember {
+        context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+    }
     var hasEmitted by remember { mutableStateOf(false) }
     var hasSeenAnimal by remember { mutableStateOf(false) }
     var hasNavigatedAwayByDelete by remember { mutableStateOf(false) }
@@ -179,7 +191,20 @@ fun AnimalDetailScreen(
                     avatarPhotoId = a.avatarPhotoId,
                     onPhotoAdded = { uri, angle, lat, lng -> viewModel.addPhoto(uri, angle, lat, lng) },
                     onPhotoDeleted = { viewModel.deletePhoto(it) },
-                    onSetAvatar = { viewModel.setAvatarPhoto(it.id) }
+                    onSetAvatar = { viewModel.setAvatarPhoto(it.id) },
+                    onTextDetected = { text ->
+                        scope.launch {
+                            val result = snackbarHostState.showSnackbar(
+                                message = "Detected text: $text",
+                                actionLabel = "Copy",
+                                duration = SnackbarDuration.Long,
+                                withDismissAction = true
+                            )
+                            if (result == SnackbarResult.ActionPerformed) {
+                                clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Detected text", text))
+                            }
+                        }
+                    }
                 )
                 Spacer(modifier = Modifier.height(24.dp))
                 AnimalInfoSection(
@@ -212,6 +237,7 @@ fun AnimalDetailScreen(
                 Spacer(modifier = Modifier.height(24.dp))
                 WeightsSection(
                     weightRecords = weightRecords,
+                    growthSummary = growthSummary,
                     onAddClick = { showLogWeight = true },
                     onEditClick = { weightRecordToEdit = it },
                     onDeleteClick = { viewModel.deleteWeightRecord(it.id) }
@@ -610,6 +636,7 @@ private fun HealthSection(
 @Composable
 private fun WeightsSection(
     weightRecords: List<WeightRecord>,
+    growthSummary: GrowthSummary?,
     onAddClick: () -> Unit,
     onEditClick: (WeightRecord) -> Unit = {},
     onDeleteClick: (WeightRecord) -> Unit = {}
@@ -652,6 +679,30 @@ private fun WeightsSection(
                 Text("Log weight")
             }
             Spacer(modifier = Modifier.height(12.dp))
+            // Growth summary card
+            val latest = weightRecords.maxByOrNull { it.date }
+            if (latest != null) {
+                val daysSinceLatest = ChronoUnit.DAYS.between(latest.date, LocalDate.now()).coerceAtLeast(0)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp)
+                ) {
+                    Text(
+                        text = "Latest: ${"%.1f".format(latest.weightKg)} kg (${latest.date})" +
+                            if (daysSinceLatest > 0) " · $daysSinceLatest days ago" else "",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    growthSummary?.let { g ->
+                        Text(
+                            text = "Average gain: ${"%.2f".format(g.gainPerDayKg)} kg/day over ${g.daysBetween} days",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
             if (weightRecords.isEmpty()) {
                 Text(
                     "No weight records yet",

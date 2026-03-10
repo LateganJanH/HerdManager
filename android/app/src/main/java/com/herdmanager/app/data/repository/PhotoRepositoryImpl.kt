@@ -45,5 +45,6 @@ private fun Photo.toEntity() = PhotoEntity(
     uri = uri,
     capturedAt = capturedAt.toEpochMilli(),
     latitude = latitude,
-    longitude = longitude
+    longitude = longitude,
+    updatedAt = System.currentTimeMillis()
 )

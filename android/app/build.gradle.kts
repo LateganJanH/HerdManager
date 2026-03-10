@@ -22,6 +22,9 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "com.herdmanager.app.HerdManagerHiltTestRunner"
+        // Multi-instance: set per-instance when building for a specific solution (e.g. product flavour or -PsolutionId=xxx)
+        buildConfigField("String", "SOLUTION_ID", "\"${project.findProperty("solutionId") ?: ""}\"")
+        buildConfigField("String", "SUPPORT_BASE_URL", "\"${project.findProperty("supportBaseUrl") ?: ""}\"")
     }
 
     buildTypes {
@@ -76,6 +79,13 @@ dependencies {
 
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    // Play In-App Update (immediate flow when update required)
+    implementation("com.google.android.play:app-update:2.1.0")
+    implementation("com.google.android.play:app-update-ktx:2.1.0")
+
+    // ML Kit text recognition (e.g. ear tag from photo)
+    implementation("com.google.mlkit:text-recognition:16.0.1")
 
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:34.9.0"))

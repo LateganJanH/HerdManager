@@ -14,7 +14,10 @@ export const metadata: Metadata = {
   title,
   description: "Modern digital cattle herd management system",
   icons: {
-    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/herdmanager-logo.svg", type: "image/svg+xml" },
+    ],
   },
   openGraph: {
     title,

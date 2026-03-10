@@ -6,7 +6,9 @@ import com.herdmanager.app.data.local.dao.HerdAssignmentDao
 import com.herdmanager.app.data.local.dao.HerdDao
 import com.herdmanager.app.data.local.dao.CalvingEventDao
 import com.herdmanager.app.data.local.dao.HealthEventDao
+import com.herdmanager.app.data.local.dao.ExpenseCategoryDao
 import com.herdmanager.app.data.local.dao.PhotoDao
+import com.herdmanager.app.data.local.dao.TransactionDao
 import com.herdmanager.app.data.local.dao.WeightRecordDao
 import com.herdmanager.app.data.local.entity.AnimalEntity
 import com.herdmanager.app.data.local.entity.BreedingEventEntity
@@ -14,7 +16,9 @@ import com.herdmanager.app.data.local.entity.CalvingEventEntity
 import com.herdmanager.app.data.local.entity.HealthEventEntity
 import com.herdmanager.app.data.local.entity.HerdAssignmentEntity
 import com.herdmanager.app.data.local.entity.HerdEntity
+import com.herdmanager.app.data.local.entity.ExpenseCategoryEntity
 import com.herdmanager.app.data.local.entity.PhotoEntity
+import com.herdmanager.app.data.local.entity.TransactionEntity
 import com.herdmanager.app.data.local.entity.WeightRecordEntity
 import com.herdmanager.app.domain.model.FarmSettings
 import com.herdmanager.app.domain.model.FarmContact
@@ -34,6 +38,8 @@ class BackupRepositoryImpl(
     private val healthEventDao: HealthEventDao,
     private val weightRecordDao: WeightRecordDao,
     private val photoDao: PhotoDao,
+    private val transactionDao: TransactionDao,
+    private val expenseCategoryDao: ExpenseCategoryDao,
     private val farmSettingsRepository: FarmSettingsRepository
 ) : BackupRepository {
 
@@ -47,6 +53,8 @@ class BackupRepositoryImpl(
         val healthEvents = healthEventDao.getAll()
         val weightRecords = weightRecordDao.getAll()
         val photos = photoDao.getAll()
+        val transactions = transactionDao.getAll()
+        val expenseCategories = expenseCategoryDao.getAll()
 
         val root = JSONObject().apply {
             put("version", 1)
@@ -68,6 +76,7 @@ class BackupRepositoryImpl(
                 put("pregnancyCheckDaysAfterBreeding", settings.pregnancyCheckDaysAfterBreeding)
                 put("gestationDays", settings.gestationDays)
                 put("weaningAgeDays", settings.weaningAgeDays)
+                put("currencyCode", settings.currencyCode.ifBlank { FarmSettings.DEFAULT_CURRENCY_CODE })
             })
             put("animals", JSONArray().apply {
                 animals.forEach { e ->
@@ -99,6 +108,8 @@ class BackupRepositoryImpl(
                         put("farmId", e.farmId)
                         e.description?.let { put("description", it) }
                         put("sortOrder", e.sortOrder)
+                        put("createdAt", e.createdAt)
+                        put("updatedAt", if (e.updatedAt > 0L) e.updatedAt else e.createdAt)
                     })
                 }
             })
@@ -111,6 +122,7 @@ class BackupRepositoryImpl(
                         put("assignedAt", e.assignedAt)
                         e.removedAt?.let { put("removedAt", it) }
                         e.reason?.let { put("reason", it) }
+                        put("updatedAt", if (e.updatedAt > 0L) e.updatedAt else (e.removedAt ?: e.assignedAt))
                     })
                 }
             })
@@ -124,6 +136,7 @@ class BackupRepositoryImpl(
                         put("serviceDate", e.serviceDate)
                         put("notes", e.notes)
                         put("createdAt", e.createdAt)
+                        put("updatedAt", if (e.updatedAt > 0L) e.updatedAt else e.createdAt)
                         e.pregnancyCheckDateEpochDay?.let { put("pregnancyCheckDateEpochDay", it) }
                         e.pregnancyCheckResult?.let { put("pregnancyCheckResult", it) }
                     })
@@ -141,6 +154,7 @@ class BackupRepositoryImpl(
                         put("calfSex", e.calfSex)
                         put("calfWeight", e.calfWeight)
                         put("notes", e.notes)
+                        put("updatedAt", if (e.updatedAt > 0L) e.updatedAt else e.actualDate * 86400_000)
                     })
                 }
             })
@@ -155,6 +169,7 @@ class BackupRepositoryImpl(
                         put("dosage", e.dosage)
                         put("withdrawalPeriodEnd", e.withdrawalPeriodEnd)
                         put("notes", e.notes)
+                        put("updatedAt", if (e.updatedAt > 0L) e.updatedAt else e.date * 86400_000)
                     })
                 }
             })
@@ -166,6 +181,7 @@ class BackupRepositoryImpl(
                         put("date", e.date)
                         put("weightKg", e.weightKg)
                         put("note", e.note)
+                        put("updatedAt", if (e.updatedAt > 0L) e.updatedAt else e.date * 86400_000)
                     })
                 }
             })
@@ -177,8 +193,43 @@ class BackupRepositoryImpl(
                         put("angle", e.angle)
                         put("uri", e.uri)
                         put("capturedAt", e.capturedAt)
+                        put("updatedAt", if (e.updatedAt > 0L) e.updatedAt else e.capturedAt)
                         e.latitude?.let { put("latitude", it) }
                         e.longitude?.let { put("longitude", it) }
+                    })
+                }
+            })
+            put("transactions", JSONArray().apply {
+                transactions.forEach { e ->
+                    put(JSONObject().apply {
+                        put("id", e.id)
+                        put("type", e.type)
+                        put("amountCents", e.amountCents)
+                        put("dateEpochDay", e.dateEpochDay)
+                        put("farmId", e.farmId)
+                        e.notes?.let { put("notes", it) }
+                        put("createdAt", e.createdAt)
+                        put("updatedAt", if (e.updatedAt > 0L) e.updatedAt else e.createdAt)
+                        e.weightKg?.let { put("weightKg", it) }
+                        e.pricePerKgCents?.let { put("pricePerKgCents", it) }
+                        e.animalId?.let { put("animalId", it) }
+                        e.contactName?.let { put("contactName", it) }
+                        e.contactPhone?.let { put("contactPhone", it) }
+                        e.contactEmail?.let { put("contactEmail", it) }
+                        e.categoryId?.let { put("categoryId", it) }
+                        e.description?.let { put("description", it) }
+                    })
+                }
+            })
+            put("expenseCategories", JSONArray().apply {
+                expenseCategories.forEach { e ->
+                    put(JSONObject().apply {
+                        put("id", e.id)
+                        put("name", e.name)
+                        put("farmId", e.farmId)
+                        put("sortOrder", e.sortOrder)
+                        put("createdAt", e.createdAt)
+                        put("updatedAt", if (e.updatedAt > 0L) e.updatedAt else e.createdAt)
                     })
                 }
             })
@@ -196,9 +247,11 @@ class BackupRepositoryImpl(
         healthEventDao.deleteAll()
         calvingEventDao.deleteAll()
         breedingEventDao.deleteAll()
-        animalDao.deleteAll()
         herdAssignmentDao.deleteAll()
+        transactionDao.deleteAll()
+        animalDao.deleteAll()
         herdDao.deleteAll()
+        expenseCategoryDao.deleteAll()
 
         // Farm settings
         root.optJSONObject("farmSettings")?.let { o ->
@@ -231,7 +284,8 @@ class BackupRepositoryImpl(
                     gestationDays = o.optInt("gestationDays", FarmSettings.DEFAULT_GESTATION_DAYS)
                         .coerceIn(FarmSettings.GESTATION_DAYS_MIN, FarmSettings.GESTATION_DAYS_MAX),
                     weaningAgeDays = o.optInt("weaningAgeDays", FarmSettings.DEFAULT_WEANING_AGE_DAYS)
-                        .coerceIn(FarmSettings.WEANING_AGE_DAYS_MIN, FarmSettings.WEANING_AGE_DAYS_MAX)
+                        .coerceIn(FarmSettings.WEANING_AGE_DAYS_MIN, FarmSettings.WEANING_AGE_DAYS_MAX),
+                    currencyCode = o.optString("currencyCode", FarmSettings.DEFAULT_CURRENCY_CODE).ifBlank { FarmSettings.DEFAULT_CURRENCY_CODE }
                 )
             )
         }
@@ -270,13 +324,17 @@ class BackupRepositoryImpl(
         root.optJSONArray("herds")?.let { arr ->
             for (i in 0 until arr.length()) {
                 val o = arr.getJSONObject(i)
+                val createdAt = o.optLong("createdAt", now)
+                val updatedAt = o.optLong("updatedAt", createdAt)
                 herdDao.insert(
                     HerdEntity(
                         id = o.getString("id"),
                         name = o.getString("name"),
                         farmId = o.optString("farmId", FarmSettings.DEFAULT_FARM_ID),
                         description = o.optString("description").takeIf { it.isNotEmpty() },
-                        sortOrder = o.optInt("sortOrder", 0)
+                        sortOrder = o.optInt("sortOrder", 0),
+                        createdAt = createdAt,
+                        updatedAt = updatedAt
                     )
                 )
             }
@@ -286,14 +344,18 @@ class BackupRepositoryImpl(
         root.optJSONArray("herdAssignments")?.let { arr ->
             for (i in 0 until arr.length()) {
                 val o = arr.getJSONObject(i)
+                val assignedAt = o.getLong("assignedAt")
+                val removedAt = if (o.has("removedAt") && !o.isNull("removedAt")) o.getLong("removedAt") else null
+                val updatedAt = o.optLong("updatedAt", -1).takeIf { it >= 0 } ?: (removedAt ?: assignedAt)
                 herdAssignmentDao.insert(
                     HerdAssignmentEntity(
                         id = o.getString("id"),
                         animalId = o.getString("animalId"),
                         herdId = o.getString("herdId"),
-                        assignedAt = o.getLong("assignedAt"),
-                        removedAt = if (o.has("removedAt") && !o.isNull("removedAt")) o.getLong("removedAt") else null,
-                        reason = o.optString("reason").takeIf { it.isNotEmpty() }
+                        assignedAt = assignedAt,
+                        removedAt = removedAt,
+                        reason = o.optString("reason").takeIf { it.isNotEmpty() },
+                        updatedAt = updatedAt
                     )
                 )
             }
@@ -304,10 +366,12 @@ class BackupRepositoryImpl(
             for (i in 0 until arr.length()) {
                 val o = arr.getJSONObject(i)
                 val sireIds = if (o.has("sireIds")) {
-                    o.getJSONArray("sireIds").let { arr -> (0 until arr.length()).map { arr.getString(it) } }
+                    o.getJSONArray("sireIds").let { a -> (0 until a.length()).map { a.getString(it) } }
                 } else {
                     o.optString("sireId").takeIf { it.isNotEmpty() }?.let { listOf(it) } ?: emptyList()
                 }
+                val createdAt = o.optLong("createdAt", now)
+                val updatedAt = o.optLong("updatedAt", createdAt)
                 breedingEventDao.insert(
                     BreedingEventEntity(
                         id = o.getString("id"),
@@ -316,7 +380,8 @@ class BackupRepositoryImpl(
                         eventType = o.getString("eventType"),
                         serviceDate = o.getLong("serviceDate"),
                         notes = o.optString("notes").takeIf { it.isNotEmpty() },
-                        createdAt = o.optLong("createdAt", now),
+                        createdAt = createdAt,
+                        updatedAt = updatedAt,
                         pregnancyCheckDateEpochDay = if (o.has("pregnancyCheckDateEpochDay") && !o.isNull("pregnancyCheckDateEpochDay")) o.getLong("pregnancyCheckDateEpochDay") else null,
                         pregnancyCheckResult = o.optString("pregnancyCheckResult").takeIf { it.isNotEmpty() }
                     )
@@ -328,17 +393,20 @@ class BackupRepositoryImpl(
         root.optJSONArray("calvingEvents")?.let { arr ->
             for (i in 0 until arr.length()) {
                 val o = arr.getJSONObject(i)
+                val actualDate = o.getLong("actualDate")
+                val updatedAt = o.optLong("updatedAt", -1).takeIf { it >= 0 } ?: (actualDate * 86400_000)
                 calvingEventDao.insert(
                     CalvingEventEntity(
                         id = o.getString("id"),
                         damId = o.getString("damId"),
                         calfId = o.optString("calfId").takeIf { it.isNotEmpty() },
                         breedingEventId = o.getString("breedingEventId"),
-                        actualDate = o.getLong("actualDate"),
+                        actualDate = actualDate,
                         assistanceRequired = o.optBoolean("assistanceRequired", false),
                         calfSex = o.optString("calfSex").takeIf { it.isNotEmpty() },
                         calfWeight = if (o.has("calfWeight") && !o.isNull("calfWeight")) o.getDouble("calfWeight") else null,
-                        notes = o.optString("notes").takeIf { it.isNotEmpty() }
+                        notes = o.optString("notes").takeIf { it.isNotEmpty() },
+                        updatedAt = updatedAt
                     )
                 )
             }
@@ -348,16 +416,19 @@ class BackupRepositoryImpl(
         root.optJSONArray("healthEvents")?.let { arr ->
             for (i in 0 until arr.length()) {
                 val o = arr.getJSONObject(i)
+                val date = o.getLong("date")
+                val updatedAt = o.optLong("updatedAt", -1).takeIf { it >= 0 } ?: (date * 86400_000)
                 healthEventDao.insert(
                     HealthEventEntity(
                         id = o.getString("id"),
                         animalId = o.getString("animalId"),
                         eventType = o.getString("eventType"),
-                        date = o.getLong("date"),
+                        date = date,
                         product = o.optString("product").takeIf { it.isNotEmpty() },
                         dosage = o.optString("dosage").takeIf { it.isNotEmpty() },
                         withdrawalPeriodEnd = o.optLong("withdrawalPeriodEnd", -1).takeIf { it >= 0 },
-                        notes = o.optString("notes").takeIf { it.isNotEmpty() }
+                        notes = o.optString("notes").takeIf { it.isNotEmpty() },
+                        updatedAt = updatedAt
                     )
                 )
             }
@@ -367,13 +438,16 @@ class BackupRepositoryImpl(
         root.optJSONArray("weightRecords")?.let { arr ->
             for (i in 0 until arr.length()) {
                 val o = arr.getJSONObject(i)
+                val date = o.getLong("date")
+                val updatedAt = o.optLong("updatedAt", -1).takeIf { it >= 0 } ?: (date * 86400_000)
                 weightRecordDao.insert(
                     WeightRecordEntity(
                         id = o.getString("id"),
                         animalId = o.getString("animalId"),
-                        date = o.getLong("date"),
+                        date = date,
                         weightKg = o.getDouble("weightKg"),
-                        note = o.optString("note").takeIf { it.isNotEmpty() }
+                        note = o.optString("note").takeIf { it.isNotEmpty() },
+                        updatedAt = updatedAt
                     )
                 )
             }
@@ -383,15 +457,66 @@ class BackupRepositoryImpl(
         root.optJSONArray("photos")?.let { arr ->
             for (i in 0 until arr.length()) {
                 val o = arr.getJSONObject(i)
+                val capturedAt = o.getLong("capturedAt")
+                val updatedAt = o.optLong("updatedAt", -1).takeIf { it >= 0 } ?: capturedAt
                 photoDao.insert(
                     PhotoEntity(
                         id = o.getString("id"),
                         animalId = o.getString("animalId"),
                         angle = o.getString("angle"),
                         uri = o.getString("uri"),
-                        capturedAt = o.getLong("capturedAt"),
+                        capturedAt = capturedAt,
                         latitude = o.optDouble("latitude", Double.NaN).takeIf { !it.isNaN() },
-                        longitude = o.optDouble("longitude", Double.NaN).takeIf { !it.isNaN() }
+                        longitude = o.optDouble("longitude", Double.NaN).takeIf { !it.isNaN() },
+                        updatedAt = updatedAt
+                    )
+                )
+            }
+        }
+
+        // Expense categories (before transactions so categoryId refs exist)
+        root.optJSONArray("expenseCategories")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val createdAt = o.optLong("createdAt", now)
+                val updatedAt = o.optLong("updatedAt", createdAt)
+                expenseCategoryDao.insert(
+                    ExpenseCategoryEntity(
+                        id = o.getString("id"),
+                        name = o.getString("name"),
+                        farmId = o.optString("farmId", FarmSettings.DEFAULT_FARM_ID),
+                        sortOrder = o.optInt("sortOrder", 0),
+                        createdAt = createdAt,
+                        updatedAt = updatedAt
+                    )
+                )
+            }
+        }
+
+        // Transactions
+        root.optJSONArray("transactions")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val createdAt = o.optLong("createdAt", now)
+                val updatedAt = o.optLong("updatedAt", createdAt)
+                transactionDao.insert(
+                    TransactionEntity(
+                        id = o.getString("id"),
+                        type = o.optString("type", "EXPENSE"),
+                        amountCents = o.optLong("amountCents", 0L),
+                        dateEpochDay = o.optLong("dateEpochDay", 0L),
+                        farmId = o.optString("farmId", FarmSettings.DEFAULT_FARM_ID),
+                        notes = o.optString("notes").takeIf { it.isNotEmpty() },
+                        createdAt = createdAt,
+                        updatedAt = updatedAt,
+                        weightKg = if (o.has("weightKg") && !o.isNull("weightKg")) o.getDouble("weightKg") else null,
+                        pricePerKgCents = if (o.has("pricePerKgCents") && !o.isNull("pricePerKgCents")) o.getLong("pricePerKgCents") else null,
+                        animalId = o.optString("animalId").takeIf { it.isNotEmpty() },
+                        contactName = o.optString("contactName").takeIf { it.isNotEmpty() },
+                        contactPhone = o.optString("contactPhone").takeIf { it.isNotEmpty() },
+                        contactEmail = o.optString("contactEmail").takeIf { it.isNotEmpty() },
+                        categoryId = o.optString("categoryId").takeIf { it.isNotEmpty() },
+                        description = o.optString("description").takeIf { it.isNotEmpty() }
                     )
                 )
             }

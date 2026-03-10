@@ -9,8 +9,10 @@ import {
 } from "./linkedDevices";
 import { isSampleDataEnabled } from "./mockHerdData";
 import { useAuth } from "./useAuth";
-import { getFirebaseDb, isFirebaseConfigured } from "./firebase";
+import { getFirebaseDb, getFirebaseFunctions, isFirebaseConfigured } from "./firebase";
 import { fetchLinkedDevicesFromFirestore } from "./firestoreDevices";
+
+const useStatsViaCallable = process.env.NEXT_PUBLIC_USE_STATS_VIA_CALLABLE === "true";
 
 async function fetchLinkedDevicesFromApi(): Promise<LinkedDevicesResponse> {
   const res = await fetch("/api/devices");
@@ -23,12 +25,22 @@ async function fetchLinkedDevicesFromApi(): Promise<LinkedDevicesResponse> {
   return { devices: [] };
 }
 
+async function fetchLinkedDevicesFromCallable(): Promise<LinkedDevicesResponse> {
+  const functions = await getFirebaseFunctions();
+  if (!functions) return { devices: [] };
+  const { httpsCallable } = await import("firebase/functions");
+  const getDevices = httpsCallable<unknown, { devices: Array<{ id: string; name: string; lastSyncAt: number }> }>(functions, "getDevices");
+  const result = await getDevices({});
+  const devices = filterValidDevices(result.data?.devices ?? []);
+  return { devices };
+}
+
 const LINKED_DEVICES_QUERY_KEY = ["linked-devices"] as const;
 
 /**
  * Fetches linked field devices. When signed in and Firebase is configured,
- * reads from Firestore (users/{uid}/devices) where Android writes on each sync.
- * Otherwise uses /api/devices or mock when sample data is enabled.
+ * uses Cloud Function getDevices (if NEXT_PUBLIC_USE_STATS_VIA_CALLABLE=true),
+ * else reads from Firestore. Otherwise uses /api/devices or mock when sample data is enabled.
  */
 export function useLinkedDevices(): {
   devices: LinkedDevice[];
@@ -38,20 +50,23 @@ export function useLinkedDevices(): {
 } {
   const { user } = useAuth();
   const uid = user?.uid ?? null;
-  const useFirestore = Boolean(uid && isFirebaseConfigured());
+  const useCallable = Boolean(useStatsViaCallable && uid && isFirebaseConfigured());
+  const useFirestore = Boolean(uid && isFirebaseConfigured() && !useCallable);
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: useFirestore ? ["linked-devices-firestore", uid] : LINKED_DEVICES_QUERY_KEY,
-    queryFn: useFirestore
-      ? async () => {
-          const db = await getFirebaseDb();
-          if (!db || !uid) return { devices: [] };
-          const devices = await fetchLinkedDevicesFromFirestore(db, uid);
-          return { devices };
-        }
-      : fetchLinkedDevicesFromApi,
+    queryKey: useCallable ? ["linked-devices-callable", uid] : useFirestore ? ["linked-devices-firestore", uid] : LINKED_DEVICES_QUERY_KEY,
+    queryFn: useCallable
+      ? fetchLinkedDevicesFromCallable
+      : useFirestore
+        ? async () => {
+            const db = await getFirebaseDb();
+            if (!db || !uid) return { devices: [] };
+            const devices = await fetchLinkedDevicesFromFirestore(db, uid);
+            return { devices };
+          }
+        : fetchLinkedDevicesFromApi,
     staleTime: 30_000,
-    enabled: !useFirestore || !!uid,
+    enabled: useCallable ? !!uid : !useFirestore || !!uid,
   });
 
   const apiDevices = data?.devices ?? [];

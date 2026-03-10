@@ -27,5 +27,6 @@ data class CalvingEventEntity(
     val assistanceRequired: Boolean,
     val calfSex: String? = null,
     val calfWeight: Double? = null,
-    val notes: String? = null
+    val notes: String? = null,
+    val updatedAt: Long = 0L
 )

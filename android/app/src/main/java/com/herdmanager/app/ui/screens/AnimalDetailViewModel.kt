@@ -35,8 +35,35 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 import javax.inject.Inject
+
+/** Summary of recent weight gain for display on the animal detail screen. */
+data class GrowthSummary(
+    val latestWeightKg: Double,
+    val latestDate: LocalDate,
+    val daysBetween: Long,
+    val gainKg: Double,
+    val gainPerDayKg: Double
+)
+
+/** Pure helper used by [AnimalDetailViewModel] and unit tests. */
+fun computeGrowthSummary(records: List<WeightRecord>): GrowthSummary? {
+    if (records.size < 2) return null
+    val sorted = records.sortedBy { it.date }
+    val last = sorted.last()
+    val prev = sorted[sorted.lastIndex - 1]
+    val days = ChronoUnit.DAYS.between(prev.date, last.date).coerceAtLeast(1)
+    val gain = last.weightKg - prev.weightKg
+    return GrowthSummary(
+        latestWeightKg = last.weightKg,
+        latestDate = last.date,
+        daysBetween = days,
+        gainKg = gain,
+        gainPerDayKg = gain / days.toDouble()
+    )
+}
 
 enum class AnimalDetailOperation { BREEDING, CALVING, PREGNANCY_CHECK, HEALTH, WEIGHT, PHOTO, AVATAR, DELETE_PHOTO, DELETE_HEALTH, DELETE_WEIGHT, DELETE_ANIMAL, TRANSFER }
 
@@ -102,6 +129,15 @@ class AnimalDetailViewModel @Inject constructor(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = emptyList()
+        )
+
+    /** Computed growth summary based on the most recent two weight records, or null when insufficient data. */
+    val growthSummary = weightRecords
+        .map { records -> computeGrowthSummary(records) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = null
         )
 
     val herds = herdRepository.observeHerdsByFarm(FarmSettings.DEFAULT_FARM_ID)

@@ -1,15 +1,19 @@
 package com.herdmanager.app.ui.theme
 
 import android.app.Activity
+import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 
@@ -77,9 +81,27 @@ private val AppShapes = Shapes(
 @Composable
 fun HerdManagerTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    val context = LocalContext.current
+    val useDynamicColor = dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    val colorScheme = when {
+        useDynamicColor && darkTheme -> dynamicDarkColorScheme(context).copy(
+            primary = ForestGreenLightTint,
+            onPrimary = Stone900,
+            primaryContainer = ForestGreen,
+            onPrimaryContainer = Stone100
+        )
+        useDynamicColor && !darkTheme -> dynamicLightColorScheme(context).copy(
+            primary = ForestGreen,
+            onPrimary = Color.White,
+            primaryContainer = ForestGreenLight.copy(alpha = 0.2f),
+            onPrimaryContainer = ForestGreenDark
+        )
+        darkTheme -> DarkColorScheme
+        else -> LightColorScheme
+    }
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
