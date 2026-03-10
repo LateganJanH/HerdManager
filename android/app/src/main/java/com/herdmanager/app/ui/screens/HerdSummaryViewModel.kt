@@ -308,7 +308,7 @@ class HerdSummaryViewModel @Inject constructor(
                 val avgWeaningWeightKg = if (weaningWeights.isNotEmpty()) weaningWeights.average() else null
 
                 HerdSummary(
-                    totalAnimals = animals.size,
+                    totalAnimals = animals.count { it.status != AnimalStatus.SOLD },
                     byStatus = AnimalStatus.entries.associateWith { byStatus[it] ?: 0 },
                     bySex = Sex.entries.associateWith { bySex[it] ?: 0 },
                     calvingsThisYear = calvingsThisYear,

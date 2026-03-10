@@ -170,6 +170,7 @@ fun HerdListScreen(
             AnimalSortOrder.DATE_OF_BIRTH -> list.sortedByDescending { it.dateOfBirth }
         }
     }
+    val activeAnimalCount = animals.count { it.status != AnimalStatus.SOLD }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -184,7 +185,7 @@ fun HerdListScreen(
                             style = MaterialTheme.typography.titleLarge
                         )
                         Text(
-                            text = "${animals.size} head" + if (alertCount > 0) " · $alertCount due soon" else "",
+                            text = "${activeAnimalCount} head" + if (alertCount > 0) " · $alertCount due soon" else "",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -360,7 +361,7 @@ fun HerdListScreen(
             }
             Spacer(modifier = Modifier.height(8.dp))
             HerdSummaryStrip(
-                herdCount = animals.size,
+                herdCount = activeAnimalCount,
                 dueSoonCount = calvingAlerts.size + pregnancyCheckAlerts.size + withdrawalAlerts.size,
                 onDueSoonClick = onNavigateToBreeding
             )

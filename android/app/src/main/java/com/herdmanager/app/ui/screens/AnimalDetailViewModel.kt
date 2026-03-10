@@ -39,18 +39,6 @@ import java.time.temporal.ChronoUnit
 import java.util.UUID
 import javax.inject.Inject
 
-enum class AnimalDetailOperation { BREEDING, CALVING, PREGNANCY_CHECK, HEALTH, WEIGHT, PHOTO, AVATAR, DELETE_PHOTO, DELETE_HEALTH, DELETE_WEIGHT, DELETE_ANIMAL, TRANSFER }
-
-sealed class AnimalDetailOperationResult {
-    data class Success(val operation: AnimalDetailOperation, val message: String) : AnimalDetailOperationResult()
-    data class Error(val operation: AnimalDetailOperation, val message: String) : AnimalDetailOperationResult()
-}
-
-data class BreedingEventWithCalving(
-    val event: BreedingEvent,
-    val calvings: List<CalvingEvent>
-)
-
 /** Summary of recent weight gain for display on the animal detail screen. */
 data class GrowthSummary(
     val latestWeightKg: Double,
@@ -77,13 +65,16 @@ fun computeGrowthSummary(records: List<WeightRecord>): GrowthSummary? {
     )
 }
 
-/** Summary of recent weight gain for display on the animal detail screen. */
-data class GrowthSummary(
-    val latestWeightKg: Double,
-    val latestDate: LocalDate,
-    val daysBetween: Long,
-    val gainKg: Double,
-    val gainPerDayKg: Double
+enum class AnimalDetailOperation { BREEDING, CALVING, PREGNANCY_CHECK, HEALTH, WEIGHT, PHOTO, AVATAR, DELETE_PHOTO, DELETE_HEALTH, DELETE_WEIGHT, DELETE_ANIMAL, TRANSFER }
+
+sealed class AnimalDetailOperationResult {
+    data class Success(val operation: AnimalDetailOperation, val message: String) : AnimalDetailOperationResult()
+    data class Error(val operation: AnimalDetailOperation, val message: String) : AnimalDetailOperationResult()
+}
+
+data class BreedingEventWithCalving(
+    val event: BreedingEvent,
+    val calvings: List<CalvingEvent>
 )
 
 @HiltViewModel
