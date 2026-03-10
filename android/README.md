@@ -6,7 +6,7 @@ Field app for cattle herd management: animals, breeding, calving, health, and sy
 
 - **JDK 17+** (bundled with Android Studio or install separately)
 - **Android Studio** (Koala 2024.1+ or latest)
-- **Android SDK** API 34+
+- **Android SDK** API 34+ (project uses compileSdk/targetSdk 35)
 - **Firebase:** Add `google-services.json` to `app/` and enable Email/Password auth. See [FIREBASE-SETUP.md](FIREBASE-SETUP.md).
 
 On **Windows**, if you build from the command line, set `JAVA_HOME` first. From the `android` folder run `.\set-java-home.ps1` (or set it manually). See [docs/DEVELOPMENT-SETUP.md](../docs/DEVELOPMENT-SETUP.md) for details.
@@ -77,8 +77,14 @@ Then run `.\gradlew.bat :app:assembleDebug` again. Alternatively, if you have Gr
 - **Sync:** One-tap “Sync” and pull-to-refresh on Home and Analytics; “Last synced” and error + Dismiss when sync fails. Full sync and backup/restore in Settings.
 - **Theme:** Dark / Light / System in Settings → Appearance (Farm profile).
 - Herd list and animal profiles (ear tag, status, sex); add/edit animals (Save disabled until ear tag, breed, and date of birth are set); breeding events, calving, pregnancy checks, health events, photos.
-- Farm settings (name, address, multiple contacts, calving/pregnancy reminder days, gestation length, herds); backup and restore (JSON export/import).
+- **Transactions & expenses:** Transactions screen with tabs for **Sales**, **Purchases**, and **Expenses**; add/edit transaction form supports amount, date (date picker), notes, optional weight and price/kg, linked animal, buyer/seller contact, expense description, and expense category; empty states, validation (amount, required animal for sales/purchases, description or category for expenses), and delete-confirmation dialogs.
+- **Expense categories:** Manage expense categories (create, rename, delete) from the Expenses tab; expense transactions can be assigned to a category; transactions list shows category labels for expenses and supports horizontal filter chips to filter by category.
+- Farm settings (name, address, multiple contacts, calving/pregnancy reminder days, gestation length, weaning age 150–300 days, herds); backup and restore (JSON export/import). Settings screen uses tabs (Farm, Operations, Herds, Sync, System, Data, About) via `HorizontalFilterChips`; a previous crash from nested horizontal scrolling was fixed by letting the chip row handle scrolling exclusively.
 - CSV and PDF export of herd (Profiles → overflow → Export herd to CSV / Export herd to PDF); app version in Settings → About.
+- **Voice & ML Kit:** **Voice input:** Mic button on ear tag and breed (Register animal, Edit animal) and on Herd list search; uses system speech recognition. **ML Kit text recognition:** When adding a photo on animal detail, text in the image is detected and shown in a snackbar with a **Copy** action to copy the text (e.g. for ear tag photos).
+- **UI & branding:** **Home:** Top app bar title "Home"; a **HerdManager branding tile** (logo + "HerdManager") above the hero card; **"Your herd at a glance"** card shows **farm name** (from Farm settings), then "Your herd at a glance" and quick overview. Ferdinand-style bull logo on launcher icon; shared UI tokens (`UiDefaults`) for cards and spacing on Home, Profiles, and Alerts; **loading skeletons** on animal detail and herd list (and Alerts where applicable); compact filter dropdowns (Herd, Status, Category, Sort) on Profiles and horizontal chip filters on Alerts.
+- **Updates:** Optional min-version check via Firestore `users/{uid}/config/app` (field `minVersionCode`). When update is required, the app tries Play In-App Update (immediate flow) first; if not available, "Open Play Store" is shown. In Settings → About, **Check for updates** runs the flexible in-app update flow when an update is available from Play.
+- **Multi-instance:** When building for a specific solution (instance per farm), set Gradle properties `-PsolutionId=<id>` and `-PsupportBaseUrl=<url>`. Then Settings → About shows **Instance:** <var>solutionId</var> (when set) and **Help & support**, **Suggest a feature**, and **Report a problem** that open the support portal with the solution ID. Use `node scripts/create-solution.js` (in repo root) to create a new solution ID. See [MULTI-INSTANCE-STRATEGY.md](../docs/MULTI-INSTANCE-STRATEGY.md) §5.
 
 The web dashboard ([../web](../web)) displays herd stats and alerts; sync connects the app to Firestore when configured.
 
