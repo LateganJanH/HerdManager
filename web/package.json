@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.59.0",
-    "firebase": "^11.0.2",
+    "firebase": "^12.10.0",
     "firebase-admin": "^13.7.0",
     "graphql": "^16.13.1",
     "graphql-yoga": "^5.18.1",
