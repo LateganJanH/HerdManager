@@ -74,4 +74,30 @@ object Migrations {
             db.execSQL("ALTER TABLE transactions ADD COLUMN pricePerKgCents INTEGER")
         }
     }
+
+    /**
+     * Adds farm_tasks table for farm-wide tasks and reminders.
+     */
+    val MIGRATION_16_17 = object : Migration(16, 17) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS farm_tasks (
+                    id TEXT PRIMARY KEY NOT NULL,
+                    title TEXT NOT NULL,
+                    notes TEXT,
+                    dueDateEpochDay INTEGER,
+                    status TEXT NOT NULL,
+                    animalId TEXT,
+                    priority TEXT,
+                    createdAt INTEGER NOT NULL,
+                    updatedAt INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_farm_tasks_status ON farm_tasks(status)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_farm_tasks_dueDateEpochDay ON farm_tasks(dueDateEpochDay)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_farm_tasks_animalId ON farm_tasks(animalId)")
+        }
+    }
 }

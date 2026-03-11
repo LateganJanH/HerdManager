@@ -23,6 +23,7 @@ import com.herdmanager.app.data.local.dao.HealthEventDao
 import com.herdmanager.app.data.local.dao.HerdAssignmentDao
 import com.herdmanager.app.data.local.dao.HerdDao
 import com.herdmanager.app.data.local.dao.PhotoDao
+import com.herdmanager.app.data.local.dao.FarmTaskDao
 import com.herdmanager.app.data.local.dao.TransactionDao
 import com.herdmanager.app.data.local.dao.WeightRecordDao
 import com.herdmanager.app.data.local.entity.AnimalEntity
@@ -33,6 +34,7 @@ import com.herdmanager.app.data.local.entity.HealthEventEntity
 import com.herdmanager.app.data.local.entity.HerdAssignmentEntity
 import com.herdmanager.app.data.local.entity.HerdEntity
 import com.herdmanager.app.data.local.entity.PhotoEntity
+import com.herdmanager.app.data.local.entity.FarmTaskEntity
 import com.herdmanager.app.data.local.entity.TransactionEntity
 import com.herdmanager.app.data.local.entity.WeightRecordEntity
 import com.herdmanager.app.domain.model.FarmSettings
@@ -66,6 +68,7 @@ private const val COL_PHOTOS = "photos"
 private const val COL_SETTINGS = "settings"
 private const val COL_TRANSACTIONS = "transactions"
 private const val COL_EXPENSE_CATEGORIES = "expense_categories"
+private const val COL_FARM_TASKS = "farm_tasks"
 private const val DOC_FARM = "farm"
 
 class SyncRepositoryImpl @Inject constructor(
@@ -84,6 +87,7 @@ class SyncRepositoryImpl @Inject constructor(
     private val photoDao: PhotoDao,
     private val transactionDao: TransactionDao,
     private val expenseCategoryDao: ExpenseCategoryDao,
+    private val farmTaskDao: FarmTaskDao,
     private val farmSettingsRepository: FarmSettingsRepository
 ) : SyncRepository {
 
@@ -117,6 +121,7 @@ class SyncRepositoryImpl @Inject constructor(
         uploadPhotos(userRef, uid)
         uploadTransactions(userRef)
         uploadExpenseCategories(userRef)
+        uploadFarmTasks(userRef)
 
         // Download remote and replace local
         downloadAndReplaceLocal(userRef)
@@ -440,6 +445,26 @@ class SyncRepositoryImpl @Inject constructor(
         }
     }
 
+    private suspend fun uploadFarmTasks(userRef: com.google.firebase.firestore.DocumentReference) {
+        val list = farmTaskDao.getAll()
+        list.chunked(500).forEach { chunk ->
+            val batch = firestore.batch()
+            chunk.forEach { e ->
+                batch.set(userRef.collection(COL_FARM_TASKS).document(e.id), mapOf(
+                    "title" to e.title,
+                    "notes" to e.notes,
+                    "dueDateEpochDay" to e.dueDateEpochDay,
+                    "status" to e.status,
+                    "animalId" to e.animalId,
+                    "priority" to e.priority,
+                    "createdAt" to e.createdAt,
+                    "updatedAt" to e.updatedAt
+                ))
+            }
+            batch.commit().await()
+        }
+    }
+
     /** Upload local photo file to Storage and return download URL, or null if not a local file or upload fails. */
     private suspend fun uploadPhotoFileIfLocal(
         photoId: String,
@@ -744,6 +769,35 @@ class SyncRepositoryImpl @Inject constructor(
         }
         expenseCategoryDao.getAll().filter { it.id !in categoriesRemoteIds }.let { extra -> expenseCategories.addAll(extra) }
 
+        // Farm tasks – merge by document
+        val tasksSnap = userRef.collection(COL_FARM_TASKS).get().await()
+        val tasksRemoteIds = tasksSnap.documents.map { it.id }.toSet()
+        val farmTasks = mutableListOf<FarmTaskEntity>()
+        for (doc in tasksSnap.documents) {
+            val d = doc.data ?: continue
+            val remoteUpdatedAt = (d["updatedAt"] as? Number)?.toLong() ?: (d["createdAt"] as? Number)?.toLong() ?: 0L
+            val local = farmTaskDao.getById(doc.id)
+            val localUpdatedAt = (local?.updatedAt?.takeIf { it > 0 } ?: local?.createdAt) ?: 0L
+            if (local != null && remoteUpdatedAt <= localUpdatedAt) {
+                farmTasks.add(local)
+            } else {
+                farmTasks.add(
+                    FarmTaskEntity(
+                        id = doc.id,
+                        title = d["title"] as? String ?: "",
+                        notes = (d["notes"] as? String).takeIf { !it.isNullOrBlank() },
+                        dueDateEpochDay = (d["dueDateEpochDay"] as? Number)?.toLong(),
+                        status = d["status"] as? String ?: "PENDING",
+                        animalId = (d["animalId"] as? String).takeIf { !it.isNullOrBlank() },
+                        priority = (d["priority"] as? String).takeIf { !it.isNullOrBlank() },
+                        createdAt = (d["createdAt"] as? Number)?.toLong() ?: System.currentTimeMillis(),
+                        updatedAt = remoteUpdatedAt
+                    )
+                )
+            }
+        }
+        farmTaskDao.getAll().filter { it.id !in tasksRemoteIds }.let { extra -> farmTasks.addAll(extra) }
+
         // Photos – apply all remote; prefer storageUrl
         val photosSnap = userRef.collection(COL_PHOTOS).get().await()
         val photos = photosSnap.documents.mapNotNull { doc ->
@@ -775,6 +829,7 @@ class SyncRepositoryImpl @Inject constructor(
         animalDao.deleteAll()
         herdDao.deleteAll()
         expenseCategoryDao.deleteAll()
+        farmTaskDao.deleteAll()
 
         if (herds.isNotEmpty()) herdDao.insertAll(herds)
         if (animals.isNotEmpty()) animalDao.insertAll(animals)
@@ -786,5 +841,6 @@ class SyncRepositoryImpl @Inject constructor(
         if (photos.isNotEmpty()) photoDao.insertAll(photos)
         if (transactions.isNotEmpty()) transactionDao.insertAll(transactions)
         if (expenseCategories.isNotEmpty()) expenseCategoryDao.insertAll(expenseCategories)
+        if (farmTasks.isNotEmpty()) farmTaskDao.insertAll(farmTasks)
     }
 }

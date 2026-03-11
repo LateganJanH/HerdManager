@@ -10,6 +10,7 @@ import com.herdmanager.app.data.local.dao.ExpenseCategoryDao
 import com.herdmanager.app.data.local.dao.HerdAssignmentDao
 import com.herdmanager.app.data.local.dao.HerdDao
 import com.herdmanager.app.data.local.dao.HealthEventDao
+import com.herdmanager.app.data.local.dao.FarmTaskDao
 import com.herdmanager.app.data.local.dao.PhotoDao
 import com.herdmanager.app.data.local.dao.TransactionDao
 import com.herdmanager.app.data.local.dao.WeightRecordDao
@@ -23,6 +24,7 @@ import com.herdmanager.app.data.local.entity.HerdEntity
 import com.herdmanager.app.data.local.entity.PhotoEntity
 import com.herdmanager.app.data.local.entity.TransactionEntity
 import com.herdmanager.app.data.local.entity.WeightRecordEntity
+import com.herdmanager.app.data.local.entity.FarmTaskEntity
 
 @Database(
     entities = [
@@ -35,9 +37,10 @@ import com.herdmanager.app.data.local.entity.WeightRecordEntity
         HerdEntity::class,
         HerdAssignmentEntity::class,
         TransactionEntity::class,
-        ExpenseCategoryEntity::class
+        ExpenseCategoryEntity::class,
+        FarmTaskEntity::class
     ],
-    version = 16,
+    version = 17,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -52,4 +55,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun weightRecordDao(): WeightRecordDao
     abstract fun transactionDao(): TransactionDao
     abstract fun expenseCategoryDao(): ExpenseCategoryDao
+    abstract fun farmTaskDao(): FarmTaskDao
 }

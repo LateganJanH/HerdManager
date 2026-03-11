@@ -8,6 +8,7 @@ import com.herdmanager.app.data.local.dao.CalvingEventDao
 import com.herdmanager.app.data.local.dao.HealthEventDao
 import com.herdmanager.app.data.local.dao.ExpenseCategoryDao
 import com.herdmanager.app.data.local.dao.PhotoDao
+import com.herdmanager.app.data.local.dao.FarmTaskDao
 import com.herdmanager.app.data.local.dao.TransactionDao
 import com.herdmanager.app.data.local.dao.WeightRecordDao
 import com.herdmanager.app.data.local.entity.AnimalEntity
@@ -18,6 +19,7 @@ import com.herdmanager.app.data.local.entity.HerdAssignmentEntity
 import com.herdmanager.app.data.local.entity.HerdEntity
 import com.herdmanager.app.data.local.entity.ExpenseCategoryEntity
 import com.herdmanager.app.data.local.entity.PhotoEntity
+import com.herdmanager.app.data.local.entity.FarmTaskEntity
 import com.herdmanager.app.data.local.entity.TransactionEntity
 import com.herdmanager.app.data.local.entity.WeightRecordEntity
 import com.herdmanager.app.domain.model.FarmSettings
@@ -40,6 +42,7 @@ class BackupRepositoryImpl(
     private val photoDao: PhotoDao,
     private val transactionDao: TransactionDao,
     private val expenseCategoryDao: ExpenseCategoryDao,
+    private val farmTaskDao: FarmTaskDao,
     private val farmSettingsRepository: FarmSettingsRepository
 ) : BackupRepository {
 
@@ -55,6 +58,7 @@ class BackupRepositoryImpl(
         val photos = photoDao.getAll()
         val transactions = transactionDao.getAll()
         val expenseCategories = expenseCategoryDao.getAll()
+        val farmTasks = farmTaskDao.getAll()
 
         val root = JSONObject().apply {
             put("version", 1)
@@ -233,6 +237,21 @@ class BackupRepositoryImpl(
                     })
                 }
             })
+            put("farmTasks", JSONArray().apply {
+                farmTasks.forEach { e ->
+                    put(JSONObject().apply {
+                        put("id", e.id)
+                        put("title", e.title)
+                        e.notes?.let { put("notes", it) }
+                        e.dueDateEpochDay?.let { put("dueDateEpochDay", it) }
+                        put("status", e.status)
+                        e.animalId?.let { put("animalId", it) }
+                        e.priority?.let { put("priority", it) }
+                        put("createdAt", e.createdAt)
+                        put("updatedAt", e.updatedAt)
+                    })
+                }
+            })
         }
         return root.toString(2)
     }
@@ -252,6 +271,7 @@ class BackupRepositoryImpl(
         animalDao.deleteAll()
         herdDao.deleteAll()
         expenseCategoryDao.deleteAll()
+        farmTaskDao.deleteAll()
 
         // Farm settings
         root.optJSONObject("farmSettings")?.let { o ->
@@ -488,6 +508,26 @@ class BackupRepositoryImpl(
                         sortOrder = o.optInt("sortOrder", 0),
                         createdAt = createdAt,
                         updatedAt = updatedAt
+                    )
+                )
+            }
+        }
+
+        // Farm tasks
+        root.optJSONArray("farmTasks")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                farmTaskDao.insert(
+                    FarmTaskEntity(
+                        id = o.getString("id"),
+                        title = o.getString("title"),
+                        notes = o.optString("notes").takeIf { it.isNotEmpty() },
+                        dueDateEpochDay = if (o.has("dueDateEpochDay") && !o.isNull("dueDateEpochDay")) o.getLong("dueDateEpochDay") else null,
+                        status = o.optString("status", "PENDING"),
+                        animalId = o.optString("animalId").takeIf { it.isNotEmpty() },
+                        priority = o.optString("priority").takeIf { it.isNotEmpty() },
+                        createdAt = o.optLong("createdAt", now),
+                        updatedAt = o.optLong("updatedAt", now)
                     )
                 )
             }

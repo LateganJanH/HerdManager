@@ -1,5 +1,12 @@
 # HerdManager – Changelog
 
+## Unreleased
+
+### Android
+- **Tasks & reminders:** Farm-wide task board (Tasks screen from Home), summary (open / due today / overdue), status filters, optional link to animal; backup/restore includes tasks.
+
+---
+
 This project has platform-specific changelogs:
 
 - **Web dashboard:** [web/CHANGELOG.md](web/CHANGELOG.md) – HerdManager web app (Next.js).

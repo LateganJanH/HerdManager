@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Pets
@@ -58,6 +59,7 @@ fun HomeScreen(
     onNavigateToAlerts: () -> Unit,
     onNavigateToAnalytics: () -> Unit,
     onNavigateToTransactions: () -> Unit = {},
+    onNavigateToTasks: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     onNavigateToAnimal: (String) -> Unit = {},
     viewModel: HerdSummaryViewModel = hiltViewModel()
@@ -278,6 +280,8 @@ fun HomeScreen(
                     HomeQuickAction("Analytics – summary", Icons.Default.Assessment, onNavigateToAnalytics)
                     Spacer(modifier = Modifier.height(12.dp))
                     HomeQuickAction("Transactions – sales, purchases, expenses", Icons.Default.AttachMoney, onNavigateToTransactions)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HomeQuickAction("Tasks – reminders", Icons.AutoMirrored.Filled.Assignment, onNavigateToTasks)
                 }
             }
         }

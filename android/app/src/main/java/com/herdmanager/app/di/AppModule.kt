@@ -17,6 +17,7 @@ import com.herdmanager.app.data.repository.PhotoRepositoryImpl
 import com.herdmanager.app.data.repository.ExpenseCategoryRepositoryImpl
 import com.herdmanager.app.data.repository.TransactionRepositoryImpl
 import com.herdmanager.app.data.repository.WeightRecordRepositoryImpl
+import com.herdmanager.app.data.repository.TaskRepositoryImpl
 import com.herdmanager.app.domain.repository.AppConfigRepository
 import com.herdmanager.app.domain.repository.AnimalRepository
 import com.herdmanager.app.domain.repository.BackupRepository
@@ -34,6 +35,7 @@ import com.herdmanager.app.domain.repository.SyncRepository
 import com.herdmanager.app.domain.repository.ExpenseCategoryRepository
 import com.herdmanager.app.domain.repository.ThemePreferencesRepository
 import com.herdmanager.app.domain.repository.TransactionRepository
+import com.herdmanager.app.domain.repository.TaskRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -57,7 +59,8 @@ object AppModule {
         .addMigrations(
             Migrations.MIGRATION_13_14,
             Migrations.MIGRATION_14_15,
-            Migrations.MIGRATION_15_16
+            Migrations.MIGRATION_15_16,
+            Migrations.MIGRATION_16_17
         )
         .fallbackToDestructiveMigration(dropAllTables = true)
         .build()
@@ -101,6 +104,11 @@ object AppModule {
     @Singleton
     fun provideTransactionRepository(db: AppDatabase): TransactionRepository =
         TransactionRepositoryImpl(db.transactionDao())
+
+    @Provides
+    @Singleton
+    fun provideTaskRepository(db: AppDatabase): TaskRepository =
+        TaskRepositoryImpl(db.farmTaskDao())
 
     @Provides
     @Singleton
@@ -156,6 +164,7 @@ object AppModule {
             db.photoDao(),
             db.transactionDao(),
             db.expenseCategoryDao(),
+            db.farmTaskDao(),
             farmSettingsRepository
         )
 
@@ -176,6 +185,7 @@ object AppModule {
             db.photoDao(),
             db.transactionDao(),
             db.expenseCategoryDao(),
+            db.farmTaskDao(),
             farmSettingsRepository
         )
 }

@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PregnantWoman
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Badge
@@ -56,6 +57,7 @@ import com.herdmanager.app.ui.screens.ExpenseCategoriesScreen
 import com.herdmanager.app.ui.screens.HerdSummaryScreen
 import com.herdmanager.app.ui.screens.HerdSummaryViewModel
 import com.herdmanager.app.ui.screens.HomeScreen
+import com.herdmanager.app.ui.screens.TasksScreen
 import com.herdmanager.app.ui.screens.TransactionsScreen
 import com.herdmanager.app.domain.model.TransactionType
 import kotlinx.coroutines.launch
@@ -81,6 +83,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
         fun route(transactionId: String) = "edit_transaction/$transactionId"
     }
     data object ExpenseCategories : Screen("expense_categories", "Expense categories", Icons.Default.AttachMoney)
+    data object Tasks : Screen("tasks", "Tasks", Icons.AutoMirrored.Filled.Assignment)
 }
 
 val bottomNavScreens = listOf(Screen.Home, Screen.HerdList, Screen.Breeding, Screen.HerdSummary, Screen.Transactions, Screen.FarmSettings)
@@ -205,6 +208,13 @@ fun AppNavigation(
                             restoreState = true
                         }
                     },
+                    onNavigateToTasks = {
+                        navController.navigate(Screen.Tasks.route) {
+                            popUpTo(Screen.Home.route) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
                     onNavigateToSettings = {
                         navController.navigate(Screen.FarmSettings.route) {
                             popUpTo(Screen.Home.route) { saveState = true }
@@ -213,6 +223,12 @@ fun AppNavigation(
                         }
                     },
                     onNavigateToAnimal = { id -> navController.navigate(Screen.AnimalDetail.route(id)) }
+                )
+            }
+            composable(Screen.Tasks.route) {
+                TasksScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onAnimalClick = { id -> navController.navigate(Screen.AnimalDetail.route(id)) }
                 )
             }
             composable(Screen.HerdList.route) {
