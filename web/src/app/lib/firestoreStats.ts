@@ -19,6 +19,7 @@ import type {
   AnimalBreedingEvent,
   AnimalCalvingEvent,
   AnimalHealthEvent,
+  AnimalWeightRecord,
   FarmProfile,
   FarmContact,
 } from "./mockHerdData";
@@ -55,12 +56,14 @@ export async function fetchHerdStatsFromFirestore(
   const breedingRef = firestore.collection(d, "users", uid, "breeding_events");
   const calvingRef = firestore.collection(d, "users", uid, "calving_events");
   const weightsRef = firestore.collection(d, "users", uid, "weight_records");
+  const conditionRef = firestore.collection(d, "users", uid, "condition_records");
 
-  const [animalsSnap, breedingSnap, calvingSnap, weightSnap, settings] = await Promise.all([
+  const [animalsSnap, breedingSnap, calvingSnap, weightSnap, conditionSnap, settings] = await Promise.all([
     firestore.getDocs(animalsRef),
     firestore.getDocs(breedingRef),
     firestore.getDocs(calvingRef),
     firestore.getDocs(weightsRef),
+    firestore.getDocs(conditionRef).catch(() => ({ docs: [] })),
     fetchFarmSettingsFromFirestore(db, uid),
   ]);
 
@@ -79,6 +82,7 @@ export async function fetchHerdStatsFromFirestore(
     const data = doc.data();
     return {
       id: doc.id,
+      animalId: data.animalId as string | undefined,
       breedingEventId: data.breedingEventId as string | undefined,
       pregnancyCheckResult: data.pregnancyCheckResult as string | undefined,
       serviceDate: data.serviceDate as number | undefined,
@@ -105,23 +109,154 @@ export async function fetchHerdStatsFromFirestore(
     })
     .filter((r): r is { animalId: string; dateEpoch: number; weightKg: number } => r != null);
 
+  const activeAnimals = animals.filter(
+    (a) => a.status !== "SOLD" && a.status !== "DECEASED" && a.status !== "CULLED"
+  );
+  const activeAnimalIds = new Set(activeAnimals.map((a) => a.id));
+  const earTagByAnimalId = new Map<string, string>();
+  animalsSnap.docs.forEach((doc) => {
+    const data = doc.data();
+    earTagByAnimalId.set(doc.id, (data.earTagNumber as string) ?? doc.id);
+  });
+
   const baseStats = computeHerdStatsFromDocs(animals, breeding, calving);
   const growthKpis = computeGrowthKpisFromDocs(
-    animals,
+    activeAnimals,
     weightRecords,
     settings?.weaningAgeDays ?? DEFAULT_WEANING_AGE_DAYS
   );
 
-  return { ...baseStats, ...growthKpis };
+  const conditionRecords: { animalId: string; score: number }[] = [];
+  const conditionDocs = "docs" in conditionSnap ? conditionSnap.docs : [];
+  conditionDocs.forEach((doc: { data: () => Record<string, unknown> }) => {
+    const data = doc.data();
+    const animalId = data.animalId as string | undefined;
+    const score = typeof data.score === "number" ? data.score : undefined;
+    if (animalId && score != null && score >= 1 && score <= 9 && activeAnimalIds.has(animalId)) {
+      conditionRecords.push({ animalId, score });
+    }
+  });
+  const avgConditionScore =
+    conditionRecords.length > 0
+      ? conditionRecords.reduce((s, r) => s + r.score, 0) / conditionRecords.length
+      : undefined;
+  const bcsDistribution: Record<number, number> = {};
+  for (let i = 1; i <= 9; i++) bcsDistribution[i] = conditionRecords.filter((r) => r.score === i).length;
+
+  const weaningAgeDays = settings?.weaningAgeDays ?? DEFAULT_WEANING_AGE_DAYS;
+  const todayEpoch = dateToEpochDay(new Date());
+  const OPEN_COW_DAYS = 60;
+  const CALF_AGE_MONTHS = 12;
+  const HEIFER_AGE_MONTHS = 24;
+  const breedingByAnimal = new Map<string, number>();
+  breeding.forEach((b) => {
+    if (b.animalId == null) return;
+    const sd = b.serviceDate;
+    if (typeof sd !== "number") return;
+    const cur = breedingByAnimal.get(b.animalId);
+    if (cur == null || sd > cur) breedingByAnimal.set(b.animalId, sd);
+  });
+  function category(a: AnimalDoc): string {
+    if (a.dateOfBirth == null) return "Cows";
+    const dobEpoch = a.dateOfBirth > 1e12 ? Math.floor(a.dateOfBirth / 86400_000) : a.dateOfBirth;
+    const monthsOld = Math.floor((todayEpoch - dobEpoch) / 30.44);
+    if (monthsOld < CALF_AGE_MONTHS) return "Calves";
+    if (a.sex === "FEMALE") return monthsOld >= HEIFER_AGE_MONTHS ? "Cows" : "Heifers";
+    return a.isCastrated === true ? "Steers" : "Bulls";
+  }
+  const weightsByAnimalEpochs = new Map<string, number[]>();
+  weightRecords.forEach((w) => {
+    const list = weightsByAnimalEpochs.get(w.animalId) ?? [];
+    list.push(w.dateEpoch);
+    weightsByAnimalEpochs.set(w.animalId, list);
+  });
+
+  const atRiskPreview: { animalId: string; earTag: string; reason: string }[] = [];
+  activeAnimals.forEach((a) => {
+    const cat = category(a);
+    if ((cat === "Cows" || cat === "Heifers") && a.sex === "FEMALE") {
+      const lastBreeding = breedingByAnimal.get(a.id);
+      const daysSince = lastBreeding != null ? todayEpoch - lastBreeding : 9999;
+      if (daysSince > OPEN_COW_DAYS) {
+        atRiskPreview.push({
+          animalId: a.id,
+          earTag: earTagByAnimalId.get(a.id) ?? a.id,
+          reason: `No breeding in ${OPEN_COW_DAYS} days`,
+        });
+      }
+    }
+    if (a.dateOfBirth == null) return;
+    const dobEpoch = a.dateOfBirth > 1e12 ? Math.floor(a.dateOfBirth / 86400_000) : a.dateOfBirth;
+    const weaningDueEpoch = dobEpoch + weaningAgeDays;
+    if (weaningDueEpoch >= todayEpoch) return;
+    const weightDates = weightsByAnimalEpochs.get(a.id) ?? [];
+    const hasWeight = weightDates.some(
+      (epoch) => epoch >= weaningDueEpoch - WEANING_ALERT_WINDOW_DAYS
+    );
+    if (!hasWeight) {
+      atRiskPreview.push({
+        animalId: a.id,
+        earTag: earTagByAnimalId.get(a.id) ?? a.id,
+        reason: "Weaning weight overdue",
+      });
+    }
+  });
+
+  // Low-growth at risk: animals whose gain per day (from last two weights) is well below herd average.
+  const gainPerDayByAnimalId = new Map<string, number>();
+  const weightsByAnimalForGain = new Map<string, { dateEpoch: number; weightKg: number }[]>();
+  weightRecords.forEach((w) => {
+    const list = weightsByAnimalForGain.get(w.animalId) ?? [];
+    list.push(w);
+    weightsByAnimalForGain.set(w.animalId, list);
+  });
+  weightsByAnimalForGain.forEach((records, animalId) => {
+    if (records.length < 2) return;
+    const sorted = records.slice().sort((a, b) => a.dateEpoch - b.dateEpoch);
+    const last = sorted[sorted.length - 1];
+    const prev = sorted[sorted.length - 2];
+    const days = Math.max(1, last.dateEpoch - prev.dateEpoch);
+    const gain = last.weightKg - prev.weightKg;
+    const gainPerDay = gain / days;
+    gainPerDayByAnimalId.set(animalId, gainPerDay);
+  });
+  const allGains = Array.from(gainPerDayByAnimalId.values());
+  const avgDailyGainAll =
+    allGains.length > 0 ? allGains.reduce((a, b) => a + b, 0) / allGains.length : undefined;
+  if (avgDailyGainAll != null && avgDailyGainAll > 0) {
+    const target = avgDailyGainAll * 0.7;
+    activeAnimals.forEach((a) => {
+      const gain = gainPerDayByAnimalId.get(a.id);
+      if (gain == null || gain >= target) return;
+      atRiskPreview.push({
+        animalId: a.id,
+        earTag: earTagByAnimalId.get(a.id) ?? a.id,
+        reason: `Low growth (${gain.toFixed(2)} kg/day)`,
+      });
+    });
+  }
+
+  return {
+    ...baseStats,
+    ...growthKpis,
+    ...(avgConditionScore != null && { avgConditionScore }),
+    ...(Object.values(bcsDistribution).some((c) => c > 0) && { bcsDistribution }),
+    ...(atRiskPreview.length > 0 && { atRiskPreview: atRiskPreview.slice(0, 5) }),
+  };
 }
 
 export function computeGrowthKpisFromDocs(
   animals: AnimalDoc[],
   weightRecords: { animalId: string; dateEpoch: number; weightKg: number }[],
   weaningAgeDays: number
-): Pick<HerdStats, "avgDailyGainAllKgPerDay" | "avgDailyGainBySexKgPerDay" | "avgWeaningWeightKg"> {
+): Pick<HerdStats, "avgDailyGainAllKgPerDay" | "avgDailyGainBySexKgPerDay" | "avgWeaningWeightKg" | "weaningWeightSamplesKg"> {
   if (animals.length === 0 || weightRecords.length === 0) {
-    return { avgDailyGainAllKgPerDay: undefined, avgDailyGainBySexKgPerDay: undefined, avgWeaningWeightKg: undefined };
+    return {
+      avgDailyGainAllKgPerDay: undefined,
+      avgDailyGainBySexKgPerDay: undefined,
+      avgWeaningWeightKg: undefined,
+      weaningWeightSamplesKg: undefined,
+    };
   }
 
   const todayEpoch = dateToEpochDay(new Date());
@@ -185,10 +320,29 @@ export function computeGrowthKpisFromDocs(
   const avgWeaningWeightKg =
     weaningWeights.length > 0 ? weaningWeights.reduce((a, b) => a + b, 0) / weaningWeights.length : undefined;
 
+  // For very large herds, keep a simple sampled subset so payload size stays reasonable.
+  const MAX_WEANING_SAMPLES = 200;
+  let weaningWeightSamplesKg: number[] | undefined;
+  if (weaningWeights.length > 0) {
+    if (weaningWeights.length <= MAX_WEANING_SAMPLES) {
+      weaningWeightSamplesKg = weaningWeights.slice();
+    } else {
+      // Reservoir-style uniform sample
+      const step = weaningWeights.length / MAX_WEANING_SAMPLES;
+      const sampled: number[] = [];
+      for (let i = 0; i < MAX_WEANING_SAMPLES; i++) {
+        const idx = Math.floor(i * step);
+        sampled.push(weaningWeights[idx]);
+      }
+      weaningWeightSamplesKg = sampled;
+    }
+  }
+
   return {
     avgDailyGainAllKgPerDay,
     avgDailyGainBySexKgPerDay: Object.keys(avgDailyGainBySexKgPerDay).length > 0 ? avgDailyGainBySexKgPerDay : undefined,
     avgWeaningWeightKg,
+    weaningWeightSamplesKg,
   };
 }
 
@@ -294,8 +448,13 @@ export async function fetchAlertsFromFirestore(
   ]);
   const earTagByAnimalId = new Map<string, string>();
   const dobEpochByAnimalId = new Map<string, number>();
+  const activeAnimalIds = new Set<string>();
   animalsSnap.docs.forEach((doc) => {
     const data = doc.data();
+    const status = (data.status as string) ?? "ACTIVE";
+    if (status !== "SOLD" && status !== "DECEASED" && status !== "CULLED") {
+      activeAnimalIds.add(doc.id);
+    }
     earTagByAnimalId.set(doc.id, (data.earTagNumber as string) ?? doc.id);
     const dob = toEpochDay(data.dateOfBirth);
     if (dob != null) dobEpochByAnimalId.set(doc.id, dob);
@@ -326,6 +485,8 @@ export async function fetchAlertsFromFirestore(
 
   breedingSnap.docs.forEach((doc) => {
     const data = doc.data();
+    const animalId = data.animalId as string | undefined;
+    if (animalId != null && !activeAnimalIds.has(animalId)) return;
     if (calvedBreedingIds.has(doc.id)) return;
     const result = (data.pregnancyCheckResult as string) || "";
     if (result === "NOT_PREGNANT") return;
@@ -333,7 +494,7 @@ export async function fetchAlertsFromFirestore(
     if (typeof serviceDate !== "number") return;
     const dueEpoch = serviceDate + GESTATION_DAYS;
     if (dueEpoch < todayEpoch || dueEpoch > todayEpoch + DUE_SOON_DAYS) return;
-    const earTag = earTagByAnimalId.get(data.animalId as string) ?? "—";
+    const earTag = earTagByAnimalId.get(animalId ?? "") ?? "—";
     items.push({
       id: doc.id,
       type: "calving",
@@ -357,9 +518,11 @@ export async function fetchAlertsFromFirestore(
 
   healthSnap.docs.forEach((doc) => {
     const data = doc.data();
+    const animalId = data.animalId as string | undefined;
+    if (animalId != null && !activeAnimalIds.has(animalId)) return;
     const endEpoch = toEpochDay(data.withdrawalPeriodEnd);
     if (endEpoch == null || endEpoch < todayEpoch || endEpoch > todayEpoch + DUE_SOON_DAYS) return;
-    const earTag = earTagByAnimalId.get(data.animalId as string) ?? "—";
+    const earTag = earTagByAnimalId.get(animalId ?? "") ?? "—";
     items.push({
       id: `wd-${doc.id}`,
       type: "withdrawal",
@@ -371,6 +534,7 @@ export async function fetchAlertsFromFirestore(
   });
 
   dobEpochByAnimalId.forEach((dobEpoch, animalId) => {
+    if (!activeAnimalIds.has(animalId)) return;
     const weaningDueEpoch = dobEpoch + weaningAgeDays;
     if (weaningDueEpoch < todayEpoch - WEANING_OVERDUE_DAYS || weaningDueEpoch > todayEpoch + WEANING_ALERT_WINDOW_DAYS) return;
     const weightDates = weightsByAnimalId.get(animalId) ?? [];
@@ -399,7 +563,7 @@ export async function fetchAnimalDetailFromFirestore(
   const d = db as import("firebase/firestore").Firestore;
   const animalRef = firestore.doc(d, "users", uid, "animals", animalId);
 
-  const [animalSnap, herdsSnap, breedingSnap, calvingSnap, healthSnap, photosSnap] =
+  const [animalSnap, herdsSnap, breedingSnap, calvingSnap, healthSnap, photosSnap, weightSnap] =
     await Promise.all([
       firestore.getDoc(animalRef),
       firestore.getDocs(firestore.collection(d, "users", uid, "herds")),
@@ -424,6 +588,12 @@ export async function fetchAnimalDetailFromFirestore(
       firestore.getDocs(
         firestore.query(
           firestore.collection(d, "users", uid, "photos"),
+          firestore.where("animalId", "==", animalId)
+        )
+      ),
+      firestore.getDocs(
+        firestore.query(
+          firestore.collection(d, "users", uid, "weight_records"),
           firestore.where("animalId", "==", animalId)
         )
       ),
@@ -496,6 +666,19 @@ export async function fetchAnimalDetailFromFirestore(
   });
   healthEvents.sort((a, b) => b.date.localeCompare(a.date));
 
+  const weightRecords: AnimalWeightRecord[] = weightSnap.docs.map((doc) => {
+    const w = doc.data();
+    const dateEpoch = (w.date as number) ?? 0;
+    const dateStr = epochDayToYyyyMmDd(dateEpoch > 1e12 ? Math.floor(dateEpoch / 86400_000) : dateEpoch);
+    return {
+      id: doc.id,
+      date: dateStr,
+      weightKg: typeof w.weightKg === "number" ? w.weightKg : 0,
+      note: (w.note as string) || null,
+    };
+  });
+  weightRecords.sort((a, b) => b.date.localeCompare(a.date));
+
   const dateOfBirth = (data.dateOfBirth as number) ?? undefined;
 
   const photos: AnimalDetailPhoto[] = photosSnap.docs.map((doc) => {
@@ -520,9 +703,68 @@ export async function fetchAnimalDetailFromFirestore(
     breedingEvents,
     calvingEvents,
     healthEvents,
+    weightRecords,
     photoCount: photosSnap.size,
     photos,
   };
+}
+
+/** YYYY-MM-DD to epoch day for Firestore weight_records (matches Android). */
+function yyyyMmDdToEpochDay(yyyyMmDd: string): number {
+  const [y, m, d] = yyyyMmDd.split("-").map(Number);
+  const date = new Date(Date.UTC(y, (m ?? 1) - 1, d ?? 1));
+  return Math.floor(date.getTime() / 86400_000);
+}
+
+/** Add a weight record to Firestore. Returns the new document id. */
+export async function addWeightRecordToFirestore(
+  db: unknown,
+  uid: string,
+  animalId: string,
+  payload: { date: string; weightKg: number; note?: string | null }
+): Promise<string> {
+  const firestore = await import("firebase/firestore");
+  const d = db as import("firebase/firestore").Firestore;
+  const col = firestore.collection(d, "users", uid, "weight_records");
+  const docRef = await firestore.addDoc(col, {
+    animalId,
+    date: yyyyMmDdToEpochDay(payload.date),
+    weightKg: payload.weightKg,
+    note: payload.note?.trim() || null,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+  return docRef.id;
+}
+
+/** Update a weight record in Firestore. */
+export async function updateWeightRecordInFirestore(
+  db: unknown,
+  uid: string,
+  recordId: string,
+  payload: { date: string; weightKg: number; note?: string | null }
+): Promise<void> {
+  const firestore = await import("firebase/firestore");
+  const d = db as import("firebase/firestore").Firestore;
+  const ref = firestore.doc(d, "users", uid, "weight_records", recordId);
+  await firestore.updateDoc(ref, {
+    date: yyyyMmDdToEpochDay(payload.date),
+    weightKg: payload.weightKg,
+    note: payload.note?.trim() || null,
+    updatedAt: Date.now(),
+  });
+}
+
+/** Delete a weight record from Firestore. */
+export async function deleteWeightRecordFromFirestore(
+  db: unknown,
+  uid: string,
+  recordId: string
+): Promise<void> {
+  const firestore = await import("firebase/firestore");
+  const d = db as import("firebase/firestore").Firestore;
+  const ref = firestore.doc(d, "users", uid, "weight_records", recordId);
+  await firestore.deleteDoc(ref);
 }
 
 const DEFAULT_CALVING_ALERT_DAYS = 14;

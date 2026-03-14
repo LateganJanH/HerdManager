@@ -6,7 +6,7 @@ import { getTheme, setTheme } from "../lib/theme";
 import { ShellRoot } from "./ShellRoot";
 import { VersionRefreshBanner } from "./VersionRefreshBanner";
 
-export type TabId = "home" | "profiles" | "alerts" | "analytics" | "transactions" | "settings";
+export type TabId = "home" | "profiles" | "alerts" | "analytics" | "transactions" | "tasks" | "settings";
 
 const tabs = [
   { id: "home" as const, label: "Home", icon: "⌂" },
@@ -14,6 +14,7 @@ const tabs = [
   { id: "alerts" as const, label: "Alerts", icon: "!" },
   { id: "analytics" as const, label: "Analytics", icon: "▣" },
   { id: "transactions" as const, label: "Transactions", icon: "₿" },
+  { id: "tasks" as const, label: "Tasks", icon: "☑" },
 ];
 
 export interface AppShellContentProps {

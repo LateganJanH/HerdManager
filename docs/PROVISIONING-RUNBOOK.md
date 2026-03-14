@@ -33,6 +33,25 @@ node scripts/create-firebase-project.js <solutionId> --project-id <gcp-project-i
 
 The service account must have Firebase Admin SDK Administrator (or equivalent) and the Firebase Management API enabled. The script adds Firebase to the project, updates the registry with `firebaseProjectId`, and optionally runs `provision-instance.js --deploy-rules --deploy-functions` when `--deploy` is set. See script header for details.
 
+**Option C – Automated GCP project creation (script)**  
+To create a **new** GCP project from scratch (no Console step), use the Cloud Resource Manager API via `create-gcp-project.js`. You must have an organization or folder to create the project under.
+
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account-key.json"
+node scripts/create-gcp-project.js <solutionId> \
+  --project-id <gcp-project-id> \
+  --name "Farm Name" \
+  (--org-id <orgNumericId> | --folder-id <folderNumericId>) \
+  [--billing-account billingAccounts/XXXX-XXXXXX-XXXXXX] \
+  [--deploy]
+```
+
+- **Required:** `--project-id` (6–30 chars, lowercase letters/numbers/hyphens, globally unique), `--name` (display name), and either `--org-id` (numeric organization ID) or `--folder-id` (numeric folder ID).  
+- **Optional:** `--billing-account` (e.g. `billingAccounts/012345-6789AB-CDEF01`) to link billing; `--deploy` to run `create-firebase-project.js <solutionId> --project-id <id> --deploy` after the project is created (add Firebase and provision rules/functions in one go).  
+- **Service account:** Must have `resourcemanager.projects.create` and `resourcemanager.projects.get` on the parent; Cloud Resource Manager (and optionally Cloud Billing) API enabled. For `--deploy`, the same account is used for Firebase (see Option B).  
+
+After Option C (without `--deploy`), run Option B’s `create-firebase-project.js` command to add Firebase to the new project.
+
 ---
 
 ## 3. Register the project in the solution registry
@@ -112,11 +131,44 @@ With `STRIPE_SECRET_KEY` set and the `stripe` package installed, this creates a 
 
 ---
 
+## Full automated onboarding (create solution + GCP project + Firebase + deploy)
+
+When you have a parent **organization** or **folder** and a service account with the right permissions, you can onboard a new farm in one flow:
+
+1. **Create solution** and capture `solutionId`:
+   ```bash
+   node scripts/create-solution.js --name "Acme Farm"
+   # Note the printed solutionId (e.g. acme-farm-xyz), or use --print-solution-id when chaining:
+   SOLUTION_ID=$(node scripts/create-solution.js --name "Acme Farm" --print-solution-id)
+   ```
+
+2. **Create GCP project, add Firebase, and provision** in one step:
+   ```bash
+   export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account-key.json"
+   node scripts/create-gcp-project.js "$SOLUTION_ID" \
+     --project-id acme-farm-prod \
+     --name "Acme Farm" \
+     --org-id 123456789 \
+     [--billing-account billingAccounts/XXXX-XXXXXX-XXXXXX] \
+     --deploy
+   ```
+   With `--deploy`, after the GCP project is created, the script runs `create-firebase-project.js <solutionId> --project-id <id> --deploy`, which adds Firebase, updates the registry, and runs `provision-instance.js --deploy-rules --deploy-functions`.
+
+Alternatively use the helper scripts (from repo root):
+
+- **Unix:** `./scripts/onboard-farm.sh "Farm Name" <gcp-project-id> <parent-numeric-id> org|folder [--billing billingAccounts/...] [--deploy]`
+- **Windows:** `.\scripts\onboard-farm.ps1 -FarmName "Farm Name" -ProjectId <gcp-project-id> -ParentId <numeric-id> -ParentType org|folder [-BillingAccount ...] [-Deploy]`
+
+These run create-solution, then create-gcp-project (with optional `--deploy`). Set `GOOGLE_APPLICATION_CREDENTIALS` first. See script headers for full usage.
+
+---
+
 ## Quick reference
 
 | Step | Command or action |
 |------|-------------------|
 | Create solution | `node scripts/create-solution.js --name "Farm Name"` |
+| Create GCP project (optional) | `node scripts/create-gcp-project.js <id> --project-id <gcp-id> --name "Farm" (--org-id N \| --folder-id N) [--billing-account ...] [--deploy]` (Option C; requires GOOGLE_APPLICATION_CREDENTIALS) |
 | Add Firebase to GCP project (optional) | `node scripts/create-firebase-project.js <id> --project-id <gcp-id> [--deploy]` (requires GOOGLE_APPLICATION_CREDENTIALS) |
 | Register Firebase project | `node scripts/update-solution.js <id> --firebase-project-id <project-id>` |
 | Deploy rules + functions | `node scripts/provision-instance.js <id> --deploy-rules [--deploy-functions]` |
@@ -129,6 +181,6 @@ With `STRIPE_SECRET_KEY` set and the `stripe` package installed, this creates a 
 
 ## See also
 
-- [INSTANCE-PER-FARM-STRATEGY.md](architecture/INSTANCE-PER-FARM-STRATEGY.md) §3.1–3.2 – checklist and automation notes
-- [MULTI-INSTANCE-STRATEGY.md](MULTI-INSTANCE-STRATEGY.md) – scripts and multi-instance ops
+- [INSTANCE-PER-FARM-STRATEGY.md](architecture/INSTANCE-PER-FARM-STRATEGY.md) §3.1–3.2 – checklist and automation notes (incl. GCP project creation and full onboarding scripts)
+- [MULTI-INSTANCE-STRATEGY.md](MULTI-INSTANCE-STRATEGY.md) §5 – solution registry, create-gcp-project.js, onboard-farm scripts, deploy to all instances
 - [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md) – multi-instance release steps

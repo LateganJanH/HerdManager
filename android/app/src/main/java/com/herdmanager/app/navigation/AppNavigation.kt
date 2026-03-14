@@ -26,6 +26,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -60,6 +61,8 @@ import com.herdmanager.app.ui.screens.HomeScreen
 import com.herdmanager.app.ui.screens.TasksScreen
 import com.herdmanager.app.ui.screens.TransactionsScreen
 import com.herdmanager.app.domain.model.TransactionType
+import com.herdmanager.app.notifications.VALUE_NAVIGATE_ALERTS
+import com.herdmanager.app.notifications.VALUE_NAVIGATE_TASKS
 import kotlinx.coroutines.launch
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
@@ -91,7 +94,9 @@ val bottomNavScreens = listOf(Screen.Home, Screen.HerdList, Screen.Breeding, Scr
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppNavigation(
-    navController: NavHostController = rememberNavController()
+    navController: NavHostController = rememberNavController(),
+    pendingNavigation: androidx.compose.runtime.MutableState<String?>? = null,
+    onConsumeNavigation: (String?) -> Unit = {}
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -100,6 +105,28 @@ fun AppNavigation(
     val lifecycleOwner = LocalLifecycleOwner.current
     var showAddAnimalSheet by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val pending = pendingNavigation?.value
+
+    LaunchedEffect(pending) {
+        when (pending) {
+            VALUE_NAVIGATE_ALERTS -> {
+                onConsumeNavigation(null)
+                navController.navigate(Screen.Breeding.route) {
+                    popUpTo(Screen.Home.route) { saveState = true }
+                    launchSingleTop = true
+                    restoreState = true
+                }
+            }
+            VALUE_NAVIGATE_TASKS -> {
+                onConsumeNavigation(null)
+                navController.navigate(Screen.Tasks.route) {
+                    popUpTo(Screen.Home.route) { saveState = true }
+                    launchSingleTop = true
+                    restoreState = true
+                }
+            }
+        }
+    }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->

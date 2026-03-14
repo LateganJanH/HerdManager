@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -40,14 +41,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.herdmanager.app.domain.model.FarmTask
 import com.herdmanager.app.domain.model.TaskStatus
+import com.herdmanager.app.ui.components.DatePickerDialog
 import com.herdmanager.app.ui.components.HorizontalFilterChips
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -330,10 +332,10 @@ private fun AddEditTaskDialog(
 ) {
     var title by remember(task) { mutableStateOf(task?.title ?: "") }
     var notes by remember(task) { mutableStateOf(task?.notes ?: "") }
-    var dueDate by remember(task) { mutableStateOf(task?.dueDate ?: LocalDate.now()) }
+    var dueDate by remember(task) { mutableStateOf<LocalDate?>(task?.dueDate) }
     var selectedAnimalId by remember(task) { mutableStateOf(task?.animalId) }
     var selectedStatus by remember(task) { mutableStateOf(task?.status ?: TaskStatus.PENDING) }
-    val context = LocalContext.current
+    var showDatePicker by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -354,25 +356,33 @@ private fun AddEditTaskDialog(
                     modifier = Modifier.fillMaxWidth(),
                     maxLines = 3
                 )
-                OutlinedTextField(
-                    value = DateTimeFormatter.ISO_LOCAL_DATE.format(dueDate),
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Due date") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            android.app.DatePickerDialog(
-                                context,
-                                { _, year, month, dayOfMonth ->
-                                    dueDate = LocalDate.of(year, month + 1, dayOfMonth)
-                                },
-                                dueDate.year,
-                                dueDate.monthValue - 1,
-                                dueDate.dayOfMonth
-                            ).show()
+                // Due date (optional): button opens date picker, clear removes it
+                Text("Due date (optional)", style = MaterialTheme.typography.labelMedium)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Button(
+                        onClick = { showDatePicker = true },
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(if (dueDate != null) DateTimeFormatter.ISO_LOCAL_DATE.format(dueDate) else "Pick date")
+                    }
+                    if (dueDate != null) {
+                        TextButton(onClick = { dueDate = null }) {
+                            Text("Clear")
                         }
-                )
+                    }
+                }
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDateSelected = { dueDate = it },
+            onDismiss = { showDatePicker = false },
+            initialDate = (dueDate ?: LocalDate.now()).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        )
+    }
                 // Animal link picker
                 var showAnimalPicker by remember { mutableStateOf(false) }
                 val selectedAnimal = animals.find { it.id == selectedAnimalId }

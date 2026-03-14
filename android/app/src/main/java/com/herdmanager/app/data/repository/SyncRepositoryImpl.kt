@@ -20,6 +20,7 @@ import com.herdmanager.app.data.local.dao.BreedingEventDao
 import com.herdmanager.app.data.local.dao.CalvingEventDao
 import com.herdmanager.app.data.local.dao.ExpenseCategoryDao
 import com.herdmanager.app.data.local.dao.HealthEventDao
+import com.herdmanager.app.data.local.dao.ConditionRecordDao
 import com.herdmanager.app.data.local.dao.HerdAssignmentDao
 import com.herdmanager.app.data.local.dao.HerdDao
 import com.herdmanager.app.data.local.dao.PhotoDao
@@ -31,6 +32,7 @@ import com.herdmanager.app.data.local.entity.BreedingEventEntity
 import com.herdmanager.app.data.local.entity.CalvingEventEntity
 import com.herdmanager.app.data.local.entity.ExpenseCategoryEntity
 import com.herdmanager.app.data.local.entity.HealthEventEntity
+import com.herdmanager.app.data.local.entity.ConditionRecordEntity
 import com.herdmanager.app.data.local.entity.HerdAssignmentEntity
 import com.herdmanager.app.data.local.entity.HerdEntity
 import com.herdmanager.app.data.local.entity.PhotoEntity
@@ -64,6 +66,7 @@ private const val COL_BREEDING_EVENTS = "breeding_events"
 private const val COL_CALVING_EVENTS = "calving_events"
 private const val COL_HEALTH_EVENTS = "health_events"
 private const val COL_WEIGHT_RECORDS = "weight_records"
+private const val COL_CONDITION_RECORDS = "condition_records"
 private const val COL_PHOTOS = "photos"
 private const val COL_SETTINGS = "settings"
 private const val COL_TRANSACTIONS = "transactions"
@@ -84,6 +87,7 @@ class SyncRepositoryImpl @Inject constructor(
     private val calvingEventDao: CalvingEventDao,
     private val healthEventDao: HealthEventDao,
     private val weightRecordDao: WeightRecordDao,
+    private val conditionRecordDao: ConditionRecordDao,
     private val photoDao: PhotoDao,
     private val transactionDao: TransactionDao,
     private val expenseCategoryDao: ExpenseCategoryDao,
@@ -106,39 +110,45 @@ class SyncRepositoryImpl @Inject constructor(
             val userRef = firestore.collection("users").document(uid)
 
             // Download farm settings first so this device gets updates from others before we overwrite.
-        // Otherwise the last device to sync would overwrite Firestore with its (possibly empty) settings.
-        downloadFarmSettingsFirst(userRef)
+            // Otherwise the last device to sync would overwrite Firestore with its (possibly empty) settings.
+            downloadFarmSettingsFirst(userRef)
 
-        // Upload local to Firestore
-        uploadFarmSettings(userRef)
-        uploadAnimals(userRef)
-        uploadHerds(userRef)
-        uploadHerdAssignments(userRef)
-        uploadBreedingEvents(userRef)
-        uploadCalvingEvents(userRef)
-        uploadHealthEvents(userRef)
-        uploadWeightRecords(userRef)
-        uploadPhotos(userRef, uid)
-        uploadTransactions(userRef)
-        uploadExpenseCategories(userRef)
-        uploadFarmTasks(userRef)
+            // Upload local to Firestore
+            uploadFarmSettings(userRef)
+            uploadAnimals(userRef)
+            uploadHerds(userRef)
+            uploadHerdAssignments(userRef)
+            uploadBreedingEvents(userRef)
+            uploadCalvingEvents(userRef)
+            uploadHealthEvents(userRef)
+            uploadWeightRecords(userRef)
+            uploadConditionRecords(userRef)
+            uploadPhotos(userRef, uid)
+            uploadTransactions(userRef)
+            uploadExpenseCategories(userRef)
+            uploadFarmTasks(userRef)
 
-        // Download remote and replace local
-        downloadAndReplaceLocal(userRef)
+            // Download remote and replace local
+            downloadAndReplaceLocal(userRef)
 
-        val now = System.currentTimeMillis()
-        context.syncDataStore.edit { it[KEY_LAST_SYNCED_AT] = now }
+            val now = System.currentTimeMillis()
+            context.syncDataStore.edit { it[KEY_LAST_SYNCED_AT] = now }
 
-        // Register this device for the web dashboard "linked devices" list
-        val deviceId = getOrCreateDeviceId()
-        val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}".trim().ifEmpty { "Android device" }
-        userRef.collection(COL_DEVICES).document(deviceId).set(
-            mapOf(
-                "name" to deviceName,
-                "lastSyncAt" to now,
-                "platform" to "Android"
-            )
-        ).await()
+            // Register this device for the web dashboard "linked devices" list
+            val deviceId = getOrCreateDeviceId()
+            val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}".trim().ifEmpty { "Android device" }
+            userRef.collection(COL_DEVICES).document(deviceId).set(
+                mapOf(
+                    "name" to deviceName,
+                    "lastSyncAt" to now,
+                    "platform" to "Android"
+                )
+            ).await()
+            Unit
+        }.also { result ->
+            result.exceptionOrNull()?.let { e ->
+                Log.e(TAG, "Sync failed", e)
+            }
         }
     }
 
@@ -370,6 +380,26 @@ class SyncRepositoryImpl @Inject constructor(
                     "date" to e.date,
                     "weightKg" to e.weightKg,
                     "note" to e.note,
+                    "createdAt" to ts,
+                    "updatedAt" to updated
+                ))
+            }
+            batch.commit().await()
+        }
+    }
+
+    private suspend fun uploadConditionRecords(userRef: com.google.firebase.firestore.DocumentReference) {
+        val list = conditionRecordDao.getAll()
+        list.chunked(500).forEach { chunk ->
+            val batch = firestore.batch()
+            chunk.forEach { e ->
+                val ts = e.dateEpochDay * 86400_000
+                val updated = if (e.updatedAt > 0L) e.updatedAt else ts
+                batch.set(userRef.collection(COL_CONDITION_RECORDS).document(e.id), mapOf(
+                    "animalId" to e.animalId,
+                    "dateEpochDay" to e.dateEpochDay,
+                    "score" to e.score,
+                    "notes" to e.notes,
                     "createdAt" to ts,
                     "updatedAt" to updated
                 ))
@@ -707,6 +737,23 @@ class SyncRepositoryImpl @Inject constructor(
             )
         }
 
+        // Condition records – apply all remote
+        val conditionSnap = userRef.collection(COL_CONDITION_RECORDS).get().await()
+        val conditionRecords = conditionSnap.documents.mapNotNull { doc ->
+            val d = doc.data ?: return@mapNotNull null
+            val dateEpochDay = (d["dateEpochDay"] as? Number)?.toLong() ?: return@mapNotNull null
+            val ts = dateEpochDay * 86400_000
+            val updatedAt = (d["updatedAt"] as? Number)?.toLong() ?: ts
+            ConditionRecordEntity(
+                id = doc.id,
+                animalId = d["animalId"] as? String ?: return@mapNotNull null,
+                dateEpochDay = dateEpochDay,
+                score = (d["score"] as? Number)?.toInt() ?: return@mapNotNull null,
+                notes = (d["notes"] as? String).takeIf { !it.isNullOrBlank() },
+                updatedAt = updatedAt
+            )
+        }
+
         // Transactions – merge by document
         val transactionsSnap = userRef.collection(COL_TRANSACTIONS).get().await()
         val transactionsRemoteIds = transactionsSnap.documents.map { it.id }.toSet()
@@ -822,6 +869,7 @@ class SyncRepositoryImpl @Inject constructor(
         photoDao.deleteAll()
         weightRecordDao.deleteAll()
         healthEventDao.deleteAll()
+        conditionRecordDao.deleteAll()
         calvingEventDao.deleteAll()
         breedingEventDao.deleteAll()
         herdAssignmentDao.deleteAll()
@@ -838,6 +886,7 @@ class SyncRepositoryImpl @Inject constructor(
         if (calvingEvents.isNotEmpty()) calvingEventDao.insertAll(calvingEvents)
         if (healthEvents.isNotEmpty()) healthEventDao.insertAll(healthEvents)
         if (weightRecords.isNotEmpty()) weightRecordDao.insertAll(weightRecords)
+        if (conditionRecords.isNotEmpty()) conditionRecordDao.insertAll(conditionRecords)
         if (photos.isNotEmpty()) photoDao.insertAll(photos)
         if (transactions.isNotEmpty()) transactionDao.insertAll(transactions)
         if (expenseCategories.isNotEmpty()) expenseCategoryDao.insertAll(expenseCategories)

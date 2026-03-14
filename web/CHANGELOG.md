@@ -6,6 +6,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+## [0.5.0] - 2026-03-14
+
+### Added
+- **Weight & weaning CRUD on Profiles:** Animal detail (Profiles modal) includes a Weight & weaning section: list of weight records, “Log weight” button, Edit and Delete per record. Add/update/delete write to Firestore `weight_records`; `fetchAnimalDetailFromFirestore` and `useAnimalDetail` include weight records and subscribe to changes; Firestore helpers `addWeightRecordToFirestore`, `updateWeightRecordInFirestore`, `deleteWeightRecordFromFirestore`.
+- **Tasks & reminders full CRUD:** New **Tasks** tab in main nav (keyboard shortcut 6): task list with status filters (All, Pending, In progress, Done, Cancelled), summary row (open / due today / overdue), “Add task” button, Edit and Delete per task; add/edit form (title, notes, due date, status when editing, optional link to animal); Firestore add/update/delete via `useFarmTasks` and new helpers `addFarmTaskToFirestore`, `updateFarmTaskInFirestore`, `deleteFarmTaskFromFirestore`. Home “Tasks & reminders” card is a link to `?tab=tasks` with “Manage tasks →”.
+- **ChunkLoadError / dev stability:** Providers loaded with `next/dynamic` in layout to reduce layout chunk size; `experimental.optimizePackageImports: ["@tanstack/react-query"]` in next.config; **dev:clean** script (`pnpm run dev:clean`) removes `.next` and runs `next dev`; global-error detects chunk load/timeout and suggests “Refresh the page”.
+
+### Fixed
+- Weight record success handler in layout clears edit state so the weight dialog closes when the operation completes.
+- E2E: keyboard shortcut 6 asserts Tasks tab and shortcut 7 asserts Settings tab (tab order updated for new Tasks tab).
+
+## [0.4.0] - 2026-03-11
+
+### Added
+- **Current herd logic:** Total animals, By status, By sex, By category, due-soon counts, and alerts now exclude SOLD, DECEASED, and CULLED so counts reflect the active herd (aligned with Android).
+- **By category on Home:** Status overview shows a “By category” card (Calves, Heifers, Cows, Bulls, Steers) when stats include category breakdown.
+- **Attention needed:** Home dashboard “Attention needed” section for at-risk items: open cows/heifers with no breeding in 60 days, calves with weaning weight overdue; link to Alerts.
+- **Body condition (BCS) on Analytics:** Average BCS for current herd when condition records are synced; shown in Analytics UI and in CSV/PDF/Excel exports.
+- **Alerts filtered by current herd:** Calving, pregnancy check, withdrawal, and weaning alerts only include animals still on farm (exclude SOLD/DECEASED/CULLED).
+
+## [0.3.0] - 2026-03-10
+
+### Added
+
+- **Tasks sync (Phase Later):** Farm-wide tasks sync across devices via Firestore. **Android:** `farm_tasks` collection upload/download in SyncRepositoryImpl (merge by document, same pattern as transactions); FarmTaskDao getById and insertAll for sync merge. **Web:** Tasks & reminders card on Home dashboard: reads from `users/{uid}/farm_tasks`, shows open count, due today/overdue, and a short task preview; “Manage in the app” when synced, “Sync app to see tasks” when not.
+- **Tasks & reminders (Android):** Farm-wide task board (Tasks screen from Home): add/edit tasks, status (PENDING/IN_PROGRESS/DONE/CANCELLED), optional animal link, status filters, summary (open / due today / overdue). Backup/restore includes tasks (farmTasks in JSON export/import). Unit tests: TaskRepositoryImplTest, TasksViewModelTest. Icons: Assignment deprecation cleared (Icons.AutoMirrored.Filled.Assignment).
+
 ## [0.2.0] - 2026-03-10
 
 ### Fixed

@@ -26,3 +26,11 @@ data class Animal(
 enum class Sex { MALE, FEMALE }
 enum class HornStatus { POLLED, HORNED, SCURED }
 enum class AnimalStatus { ACTIVE, SOLD, DECEASED, CULLED, ACQUIRED_FROM }
+
+/** True if the animal is still on farm (excludes SOLD, DECEASED, CULLED). Use for "current herd" counts, due-soon, and analytics. */
+val AnimalStatus.isInCurrentHerd: Boolean
+    get() = this != AnimalStatus.SOLD && this != AnimalStatus.DECEASED && this != AnimalStatus.CULLED
+
+/** True if this animal is still on farm; use for current herd filters. */
+val Animal.isInCurrentHerd: Boolean
+    get() = status.isInCurrentHerd

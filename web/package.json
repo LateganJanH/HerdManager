@@ -1,13 +1,15 @@
 {
   "name": "herdmanager-web",
-  "version": "0.1.0",
+  "version": "0.5.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:clean": "node -e \"const fs=require('fs');const p=require('path').join(process.cwd(),'.next');if(fs.existsSync(p)){fs.rmSync(p,{recursive:true});}\" && next dev",
     "dev:e2e": "next dev --port 3100",
     "dev:turbo": "next dev --turbo",
     "prebuild": "node -e \"const fs=require('fs');const path=require('path');const src=path.join(process.cwd(),'..','shared','api','openapi.yaml');const dest=path.join(process.cwd(),'public','openapi.yaml');if(fs.existsSync(src)){fs.mkdirSync(path.dirname(dest),{recursive:true});fs.copyFileSync(src,dest);}\"",
     "build": "next build",
+    "build:clean": "node -e \"const fs=require('fs');const p=require('path').join(process.cwd(),'.next');if(fs.existsSync(p)){fs.rmSync(p,{recursive:true});}\" && pnpm run build",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest",

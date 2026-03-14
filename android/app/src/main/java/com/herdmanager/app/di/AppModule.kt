@@ -17,6 +17,7 @@ import com.herdmanager.app.data.repository.PhotoRepositoryImpl
 import com.herdmanager.app.data.repository.ExpenseCategoryRepositoryImpl
 import com.herdmanager.app.data.repository.TransactionRepositoryImpl
 import com.herdmanager.app.data.repository.WeightRecordRepositoryImpl
+import com.herdmanager.app.data.repository.ConditionRecordRepositoryImpl
 import com.herdmanager.app.data.repository.TaskRepositoryImpl
 import com.herdmanager.app.domain.repository.AppConfigRepository
 import com.herdmanager.app.domain.repository.AnimalRepository
@@ -28,6 +29,7 @@ import com.herdmanager.app.domain.repository.FarmSettingsRepository
 import com.herdmanager.app.domain.repository.HealthEventRepository
 import com.herdmanager.app.domain.repository.PhotoRepository
 import com.herdmanager.app.domain.repository.WeightRecordRepository
+import com.herdmanager.app.domain.repository.ConditionRecordRepository
 import com.herdmanager.app.data.repository.FarmSettingsRepositoryImpl
 import com.herdmanager.app.data.repository.SyncRepositoryImpl
 import com.herdmanager.app.data.repository.ThemePreferencesRepositoryImpl
@@ -60,7 +62,8 @@ object AppModule {
             Migrations.MIGRATION_13_14,
             Migrations.MIGRATION_14_15,
             Migrations.MIGRATION_15_16,
-            Migrations.MIGRATION_16_17
+            Migrations.MIGRATION_16_17,
+            Migrations.MIGRATION_17_18
         )
         .fallbackToDestructiveMigration(dropAllTables = true)
         .build()
@@ -99,6 +102,11 @@ object AppModule {
     @Singleton
     fun provideWeightRecordRepository(db: AppDatabase): WeightRecordRepository =
         WeightRecordRepositoryImpl(db.weightRecordDao())
+
+    @Provides
+    @Singleton
+    fun provideConditionRecordRepository(db: AppDatabase): ConditionRecordRepository =
+        ConditionRecordRepositoryImpl(db.conditionRecordDao())
 
     @Provides
     @Singleton
@@ -161,6 +169,7 @@ object AppModule {
             db.calvingEventDao(),
             db.healthEventDao(),
             db.weightRecordDao(),
+            db.conditionRecordDao(),
             db.photoDao(),
             db.transactionDao(),
             db.expenseCategoryDao(),
@@ -181,6 +190,7 @@ object AppModule {
             db.breedingEventDao(),
             db.calvingEventDao(),
             db.healthEventDao(),
+            db.conditionRecordDao(),
             db.weightRecordDao(),
             db.photoDao(),
             db.transactionDao(),

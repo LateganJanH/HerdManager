@@ -7,14 +7,15 @@ import { test, expect } from "@playwright/test";
  */
 test.describe("Dashboard", () => {
   test("opens Home and shows main content or sign-in when Firebase configured", async ({ page }) => {
+    test.setTimeout(90_000);
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { level: 1 })).toContainText("HerdManager", { timeout: 30_000 });
     const main = page.getByRole("main");
     const signInEmail = page.getByLabel("Email");
     await Promise.race([
-      main.waitFor({ state: "visible", timeout: 30_000 }),
-      signInEmail.waitFor({ state: "visible", timeout: 30_000 }),
+      main.waitFor({ state: "visible", timeout: 60_000 }),
+      signInEmail.waitFor({ state: "visible", timeout: 60_000 }),
     ]);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("HerdManager", { timeout: 5_000 });
     if (await main.isVisible()) {
       await expect(page.getByRole("navigation", { name: /main navigation/i })).toBeVisible();
     } else {
@@ -61,13 +62,22 @@ test.describe("Dashboard", () => {
     await expect(page.getByRole("button", { name: "Profiles" })).toHaveAttribute("aria-current", "page");
   });
 
-  test("keyboard shortcut 5 switches to Settings tab", async ({ page }) => {
+  test("keyboard shortcut 6 switches to Tasks tab", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("main")).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("main").click();
-    await page.keyboard.press("5");
-    await expect(page).toHaveURL(/\?tab=settings/, { timeout: 5_000 });
-    await expect(page.getByRole("button", { name: "Settings" })).toHaveAttribute("aria-current", "page");
+    await page.getByRole("main").focus();
+    await page.keyboard.press("6");
+    await expect(page).toHaveURL(/\?tab=tasks/, { timeout: 10_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "Tasks & reminders" })).toBeVisible();
+  });
+
+  test("keyboard shortcut 7 switches to Settings tab", async ({ page }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("main")).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("main").focus();
+    await page.keyboard.press("7");
+    await expect(page).toHaveURL(/\?tab=settings/, { timeout: 10_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "Settings" })).toBeVisible();
   });
 
   test("opens Settings from menu and shows Settings content", async ({ page }) => {
@@ -76,12 +86,14 @@ test.describe("Dashboard", () => {
     await page.getByRole("button", { name: "Settings", exact: true }).click();
     await expect(page).toHaveURL(/\?tab=settings/);
     await expect(page.getByRole("heading", { level: 2, name: "Settings" })).toBeVisible();
+    await page.getByRole("tab", { name: "System settings" }).click();
     await expect(page.getByRole("heading", { level: 3, name: "Appearance" })).toBeVisible();
   });
 
   test("Settings About section has API spec option and spec is served", async ({ page, request }) => {
     await page.goto("/?tab=settings", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { level: 2, name: "Settings" })).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("tab", { name: "About" }).click();
     await expect(page.getByRole("heading", { level: 3, name: "About" })).toBeVisible();
     const apiSpecButton = page.getByRole("button", { name: "API spec (OpenAPI 3)" });
     await expect(apiSpecButton).toBeVisible();
@@ -119,13 +131,17 @@ test.describe("Dashboard", () => {
 
   test("Settings About shows Web dashboard version", async ({ page }) => {
     await page.goto("/?tab=settings", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { level: 3, name: "About" })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "Settings" })).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("tab", { name: "About" }).click();
+    await expect(page.getByRole("heading", { level: 3, name: "About" })).toBeVisible({ timeout: 5_000 });
     await expect(page.getByText(/Web dashboard v[\d.]+/)).toBeVisible();
   });
 
   test("Settings About Changelog link opens changelog page", async ({ page }) => {
     await page.goto("/?tab=settings", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { level: 3, name: "About" })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "Settings" })).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("tab", { name: "About" }).click();
+    await expect(page.getByRole("heading", { level: 3, name: "About" })).toBeVisible({ timeout: 5_000 });
     const changelogLink = page.getByRole("link", { name: "Changelog" });
     await expect(changelogLink).toBeVisible();
     await expect(changelogLink).toHaveAttribute("href", "/changelog");
@@ -154,6 +170,7 @@ test.describe("Dashboard", () => {
   test("toggles theme in Settings", async ({ page }) => {
     await page.goto("/?tab=settings", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { level: 2, name: "Settings" })).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("tab", { name: "System settings" }).click();
     const lightRadio = page.getByRole("radio", { name: "Light" });
     const darkRadio = page.getByRole("radio", { name: "Dark" });
     await expect(lightRadio).toBeVisible();
@@ -166,6 +183,7 @@ test.describe("Dashboard", () => {
   test("toggles sample data in Settings", async ({ page }) => {
     await page.goto("/?tab=settings", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { level: 2, name: "Settings" })).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("tab", { name: "Sync settings" }).click();
     const sampleCheckbox = page.getByRole("checkbox", { name: "Use sample data" });
     await expect(sampleCheckbox).toBeVisible({ timeout: 15_000 });
     const initialState = await sampleCheckbox.isChecked();
@@ -239,8 +257,8 @@ test.describe("Dashboard", () => {
 
   test("Settings: when Edit farm is visible, open form and Cancel closes it", async ({ page }) => {
     await page.goto("/?tab=settings", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible({ timeout: 25_000 });
-    await expect(page.getByRole("heading", { name: "Farm & sync" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Settings" })).toBeVisible({ timeout: 25_000 });
+    await expect(page.getByRole("heading", { level: 3, name: "Farm settings" })).toBeVisible();
     const editFarmButton = page.getByRole("button", { name: "Edit farm", exact: true });
     const isEditVisible = await editFarmButton.isVisible();
     if (isEditVisible) {

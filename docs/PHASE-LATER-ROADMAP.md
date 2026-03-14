@@ -65,4 +65,4 @@ Concrete next steps for **Phase Later** work after MVP and current polish. Use w
 
 | Item | Description |
 |------|-------------|
-| **GCP project creation** | Create a *new* GCP project from scratch via Cloud Resource Manager API (e.g. from a parent org/folder). Today: create the project in Console, then use `create-firebase-project.js` to add Firebase. |
+| **~~GCP project creation~~** | **Done.** `create-gcp-project.js` creates a new GCP project via Cloud Resource Manager API (requires `--org-id` or `--folder-id`). Optionally links billing and runs `create-firebase-project.js --deploy` with `--deploy`. See [PROVISIONING-RUNBOOK.md](PROVISIONING-RUNBOOK.md) Option C and “Full automated onboarding”; [MULTI-INSTANCE-STRATEGY.md](MULTI-INSTANCE-STRATEGY.md) §5.4. |

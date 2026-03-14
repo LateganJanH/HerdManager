@@ -19,8 +19,8 @@ android {
         applicationId = "com.herdmanager.app"
         minSdk = 29
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 4
+        versionName = "0.5.0"
         testInstrumentationRunner = "com.herdmanager.app.HerdManagerHiltTestRunner"
         // Multi-instance: set per-instance when building for a specific solution (e.g. product flavour or -PsolutionId=xxx)
         buildConfigField("String", "SOLUTION_ID", "\"${project.findProperty("solutionId") ?: ""}\"")
@@ -92,6 +92,7 @@ dependencies {
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-storage")
+    implementation("com.google.firebase:firebase-messaging")
 
     // Unit tests
     testImplementation("junit:junit:4.13.2")

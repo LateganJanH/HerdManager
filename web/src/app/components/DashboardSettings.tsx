@@ -723,7 +723,7 @@ export function DashboardSettings({ onBack }: { onBack: () => void }) {
               Keyboard shortcuts
             </h3>
             <ul className="mt-2 space-y-1 text-base text-stone-600 dark:text-stone-300 list-none">
-              <li><kbd className="rounded bg-stone-200 dark:bg-stone-600 px-1.5 py-0.5 font-mono text-sm">1</kbd>–<kbd className="rounded bg-stone-200 dark:bg-stone-600 px-1.5 py-0.5 font-mono text-sm">5</kbd> — Switch tab (Home, Profiles, Alerts, Analytics, Settings); focus moves to main content</li>
+              <li><kbd className="rounded bg-stone-200 dark:bg-stone-600 px-1.5 py-0.5 font-mono text-sm">1</kbd>–<kbd className="rounded bg-stone-200 dark:bg-stone-600 px-1.5 py-0.5 font-mono text-sm">6</kbd> — Switch tab (Home, Profiles, Alerts, Analytics, Transactions, Settings); focus moves to main content</li>
               <li><kbd className="rounded bg-stone-200 dark:bg-stone-600 px-1.5 py-0.5 font-mono text-sm">Esc</kbd> — Close menu</li>
               <li>Menu: <strong>Copy link</strong> — Copy current page URL (including tab) to clipboard</li>
               <li><kbd className="rounded bg-stone-200 dark:bg-stone-600 px-1.5 py-0.5 font-mono text-sm">Tab</kbd> — Move focus (bottom nav, menu, links)</li>

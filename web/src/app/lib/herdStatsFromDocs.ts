@@ -10,6 +10,10 @@ const DUE_SOON_DAYS = 14;
 const CALF_AGE_MONTHS = 12;
 const HEIFER_AGE_MONTHS = 24;
 
+function isInCurrentHerd(status: string): boolean {
+  return status !== "SOLD" && status !== "DECEASED" && status !== "CULLED";
+}
+
 function dateToEpochDay(date: Date): number {
   return Math.floor(date.getTime() / 86400_000);
 }
@@ -30,6 +34,7 @@ export interface AnimalDoc {
 
 export interface BreedingDoc {
   id: string;
+  animalId?: string;
   breedingEventId?: string;
   pregnancyCheckResult?: string;
   serviceDate?: number;
@@ -46,6 +51,9 @@ export function computeHerdStatsFromDocs(
   breeding: BreedingDoc[],
   calving: CalvingDoc[]
 ): HerdStats {
+  const activeAnimals = animals.filter((a) => isInCurrentHerd(a.status));
+  const activeAnimalIds = new Set(activeAnimals.map((a) => a.id));
+
   const calvedBreedingIds = new Set<string>();
   const calvingDates: number[] = [];
   calving.forEach((doc) => {
@@ -61,6 +69,7 @@ export function computeHerdStatsFromDocs(
   let openPregnant = 0;
   let dueSoon = 0;
   breeding.forEach((doc) => {
+    if (doc.animalId != null && !activeAnimalIds.has(doc.animalId)) return;
     if (calvedBreedingIds.has(doc.id)) return;
     const result = doc.pregnancyCheckResult || "";
     if (result === "NOT_PREGNANT") return;
@@ -82,7 +91,7 @@ export function computeHerdStatsFromDocs(
 
   const byStatus: Record<string, number> = {};
   const bySex: Record<string, number> = {};
-  animals.forEach((a) => {
+  activeAnimals.forEach((a) => {
     byStatus[a.status] = (byStatus[a.status] ?? 0) + 1;
     bySex[a.sex] = (bySex[a.sex] ?? 0) + 1;
   });
@@ -94,7 +103,7 @@ export function computeHerdStatsFromDocs(
     Bulls: 0,
     Steers: 0,
   };
-  animals.forEach((a) => {
+  activeAnimals.forEach((a) => {
     const dobEpoch =
       a.dateOfBirth != null
         ? a.dateOfBirth > 1e12
@@ -121,7 +130,7 @@ export function computeHerdStatsFromDocs(
   });
 
   return {
-    totalAnimals: animals.length,
+    totalAnimals: activeAnimals.length,
     dueSoon,
     calvingsThisYear,
     breedingEventsThisYear,

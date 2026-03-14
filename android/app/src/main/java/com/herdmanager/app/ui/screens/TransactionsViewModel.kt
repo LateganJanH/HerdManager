@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.herdmanager.app.domain.model.Animal
 import com.herdmanager.app.domain.model.AnimalStatus
+import com.herdmanager.app.domain.model.isInCurrentHerd
 import com.herdmanager.app.domain.model.ExpenseCategory
 import com.herdmanager.app.domain.model.FarmSettings
 import com.herdmanager.app.domain.model.Transaction
@@ -117,7 +118,7 @@ class TransactionsViewModel @Inject constructor(
             transactionRepository.insertTransaction(transaction)
             if (setAnimalSold && transaction.type == TransactionType.SALE && transaction.animalId != null) {
                 val animal = animalRepository.getAnimalById(transaction.animalId)
-                if (animal != null && animal.status != AnimalStatus.SOLD) {
+                if (animal != null && animal.isInCurrentHerd) {
                     animalRepository.insertAnimal(
                         animal.copy(status = AnimalStatus.SOLD)
                     )

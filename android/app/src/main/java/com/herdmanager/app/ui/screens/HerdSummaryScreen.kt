@@ -128,6 +128,28 @@ fun HerdSummaryScreen(
                     }
                 }
                 Spacer(modifier = Modifier.height(12.dp))
+                if (summary.byCategory.isNotEmpty()) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("By category", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            listOf("Calves", "Heifers", "Cows", "Bulls", "Steers").forEach { label ->
+                                val count = summary.byCategory[label] ?: 0
+                                if (count > 0) {
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text(label, style = MaterialTheme.typography.bodyMedium)
+                                        Text("$count", style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -143,6 +165,49 @@ fun HerdSummaryScreen(
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("Open / pregnant", style = MaterialTheme.typography.bodyMedium)
                             Text("${summary.openBreedingEvents}", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                if (summary.avgConditionScore != null || summary.bcsDistribution.values.any { it > 0 }) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("Condition", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            summary.avgConditionScore?.let { avg ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Average BCS", style = MaterialTheme.typography.bodyMedium)
+                                    Text(
+                                        String.format("%.1f", avg),
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                            }
+                            if (summary.bcsDistribution.values.any { it > 0 }) {
+                                if (summary.avgConditionScore != null) Spacer(modifier = Modifier.height(8.dp))
+                                Text("BCS distribution", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceEvenly
+                                ) {
+                                    (1..9).forEach { score ->
+                                        val count = summary.bcsDistribution[score] ?: 0
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text("$score", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text("$count", style = MaterialTheme.typography.bodySmall)
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

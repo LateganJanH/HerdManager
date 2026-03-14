@@ -11,13 +11,17 @@ function isRecordOfNumbers(obj: unknown): obj is Record<string, number> {
 export function isValidStats(data: unknown): data is HerdStats {
   if (data == null || typeof data !== "object") return false;
   const d = data as Record<string, unknown>;
-  return (
+  const valid =
     typeof d.totalAnimals === "number" &&
     typeof d.dueSoon === "number" &&
     typeof d.calvingsThisYear === "number" &&
     typeof d.breedingEventsThisYear === "number" &&
     typeof d.openPregnant === "number" &&
     isRecordOfNumbers(d.byStatus) &&
-    isRecordOfNumbers(d.bySex)
-  );
+    isRecordOfNumbers(d.bySex);
+  if (!valid) return false;
+  if (d.byCategory != null && (typeof d.byCategory !== "object" || Array.isArray(d.byCategory))) return false;
+  if (d.avgConditionScore != null && typeof d.avgConditionScore !== "number") return false;
+  if (d.atRiskPreview != null && !Array.isArray(d.atRiskPreview)) return false;
+  return true;
 }

@@ -5,6 +5,8 @@ import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.herdmanager.app.domain.model.AnimalStatus
+import com.herdmanager.app.domain.model.isInCurrentHerd
 import com.herdmanager.app.domain.model.PhotoAngle
 import com.herdmanager.app.domain.model.FarmSettings
 import com.herdmanager.app.domain.repository.AnimalRepository
@@ -95,7 +97,9 @@ class HerdListViewModel @Inject constructor(
                 }
                 .onFailure { e ->
                     _isSyncing.value = false
-                    _syncError.value = e.message ?: "Sync failed"
+                    _syncError.value = e.message?.takeIf { it.isNotBlank() }
+                        ?: e.javaClass.simpleName.takeIf { it.isNotBlank() }
+                        ?: "Sync failed"
                 }
         }
     }
@@ -182,8 +186,9 @@ class HerdListViewModel @Inject constructor(
         val checkDays = settings.pregnancyCheckDaysClamped().toLong()
         val calvedSet = calvedIds.toSet()
         val animalMap = animals.associateBy { it.id }
+        val activeAnimalIds = animals.filter { it.isInCurrentHerd }.map { it.id }.toSet()
         events
-            .filter { it.id !in calvedSet }
+            .filter { it.animalId in activeAnimalIds && it.id !in calvedSet }
             .filter { !it.hasPregnancyCheck }
             .map { event ->
                 val checkDue = event.serviceDate.plusDays(checkDays)
@@ -217,8 +222,9 @@ class HerdListViewModel @Inject constructor(
         val calvedSet = calvedIds.toSet()
         val animalMap = animals.associateBy { it.id }
         val gestation = settings.gestationDaysClamped()
+        val activeAnimalIds = animals.filter { it.isInCurrentHerd }.map { it.id }.toSet()
         events
-            .filter { it.id !in calvedSet }
+            .filter { it.animalId in activeAnimalIds && it.id !in calvedSet }
             .filter { run { val d = it.dueDate(gestation); d in LocalDate.now()..LocalDate.now().plusDays(alertDays) } }
             .sortedBy { it.dueDate(gestation) }
             .map { event ->
@@ -244,8 +250,9 @@ class HerdListViewModel @Inject constructor(
         val now = LocalDate.now()
         val endRange = now.plusDays(WITHDRAWAL_ALERT_WINDOW_DAYS)
         val animalMap = animals.associateBy { it.id }
+        val activeAnimalIds = animals.filter { it.isInCurrentHerd }.map { it.id }.toSet()
         healthEvents
-            .filter { it.withdrawalPeriodEnd != null && it.withdrawalPeriodEnd!! in now..endRange }
+            .filter { it.animalId in activeAnimalIds && it.withdrawalPeriodEnd != null && it.withdrawalPeriodEnd!! in now..endRange }
             .sortedBy { it.withdrawalPeriodEnd }
             .map { event ->
                 val end = event.withdrawalPeriodEnd!!

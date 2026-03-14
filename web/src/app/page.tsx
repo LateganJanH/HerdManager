@@ -11,6 +11,7 @@ import { DashboardAlerts } from "./components/DashboardAlerts";
 import { DashboardAnalytics } from "./components/DashboardAnalytics";
 import { DashboardSettings } from "./components/DashboardSettings";
 import { DashboardTransactions } from "./components/DashboardTransactions";
+import { DashboardTasks } from "./components/DashboardTasks";
 import { onSampleDataChange } from "./lib/mockHerdData";
 import { useAuth, isAuthConfigured } from "./lib/useAuth";
 
@@ -20,17 +21,19 @@ const TAB_TITLES: Record<TabId, string> = {
   alerts: "Alerts",
   analytics: "Analytics",
   transactions: "Transactions",
+  tasks: "Tasks",
   settings: "Settings",
 };
 
-const VALID_TABS: TabId[] = ["home", "profiles", "alerts", "analytics", "transactions", "settings"];
+const VALID_TABS: TabId[] = ["home", "profiles", "alerts", "analytics", "transactions", "tasks", "settings"];
 const TAB_BY_DIGIT: Record<string, TabId> = {
   "1": "home",
   "2": "profiles",
   "3": "alerts",
   "4": "analytics",
   "5": "transactions",
-  "6": "settings",
+  "6": "tasks",
+  "7": "settings",
 };
 
 export default function Home() {
@@ -113,6 +116,7 @@ export default function Home() {
       {currentTab === "alerts" && <DashboardAlerts />}
       {currentTab === "analytics" && <DashboardAnalytics />}
       {currentTab === "transactions" && <DashboardTransactions />}
+      {currentTab === "tasks" && <DashboardTasks />}
       {currentTab === "settings" && (
         <DashboardSettings onBack={() => setCurrentTab("home")} />
       )}

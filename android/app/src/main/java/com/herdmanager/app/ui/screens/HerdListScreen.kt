@@ -78,6 +78,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.herdmanager.app.domain.model.Animal
 import com.herdmanager.app.domain.model.AnimalStatus
 import com.herdmanager.app.domain.model.Herd
+import com.herdmanager.app.domain.model.isInCurrentHerd
 import com.herdmanager.app.domain.model.FarmSettings
 import com.herdmanager.app.domain.model.Sex
 import com.herdmanager.app.ui.components.SyncStatusStrip
@@ -170,7 +171,7 @@ fun HerdListScreen(
             AnimalSortOrder.DATE_OF_BIRTH -> list.sortedByDescending { it.dateOfBirth }
         }
     }
-    val activeAnimalCount = animals.count { it.status != AnimalStatus.SOLD }
+    val activeAnimalCount = animals.count { it.isInCurrentHerd }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -577,7 +578,7 @@ private fun StatusFilterDropdown(
             singleLine = true,
             textStyle = MaterialTheme.typography.bodySmall
         )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
                 text = { Text("All statuses") },
                 onClick = { onStatusSelected(null); expanded = false }
@@ -613,7 +614,7 @@ private fun CategoryFilterDropdown(
             singleLine = true,
             textStyle = MaterialTheme.typography.bodySmall
         )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             HerdCategoryFilter.entries.forEach { category ->
                 DropdownMenuItem(
                     text = { Text(category.label) },
@@ -645,7 +646,7 @@ private fun SortOrderDropdown(
             singleLine = true,
             textStyle = MaterialTheme.typography.bodySmall
         )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             AnimalSortOrder.entries.forEach { order ->
                 DropdownMenuItem(
                     text = { Text(order.label) },

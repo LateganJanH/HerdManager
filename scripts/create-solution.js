@@ -66,6 +66,12 @@ function main() {
   registry.solutions.push(entry);
   fs.writeFileSync(REGISTRY_PATH, JSON.stringify(registry, null, 2) + "\n", "utf-8");
 
+  const printOnlyId = process.argv.includes("--print-solution-id");
+  if (printOnlyId) {
+    console.log(solutionId);
+    return;
+  }
+
   console.log("Created solution:", solutionId);
   console.log("");
   console.log("Next steps (see docs/architecture/INSTANCE-PER-FARM-STRATEGY.md §3.1):");

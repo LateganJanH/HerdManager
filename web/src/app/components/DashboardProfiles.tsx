@@ -8,16 +8,75 @@ import { isSampleDataEnabled } from "../lib/mockHerdData";
 import { useHerdStats } from "../lib/useHerdStats";
 import { useAnimalProfiles } from "../lib/useAnimalProfiles";
 import { useAnimalDetail } from "../lib/useAnimalDetail";
-import type { AnimalProfile, AnimalDetail } from "../lib/mockHerdData";
+import type { AnimalProfile, AnimalDetail, AnimalWeightRecord } from "../lib/mockHerdData";
 import { APP_NAME } from "../lib/version";
+import {
+  addWeightRecordToFirestore,
+  updateWeightRecordInFirestore,
+  deleteWeightRecordFromFirestore,
+} from "../lib/firestoreStats";
+import { getFirebaseDb } from "../lib/firebase";
+import { useAuth } from "../lib/useAuth";
 
 function AnimalDetailContent({
   detail,
   onRefresh,
+  onAddWeight,
+  onUpdateWeight,
+  onDeleteWeight,
 }: {
   detail: AnimalDetail;
   onRefresh: () => void;
+  onAddWeight: (payload: { date: string; weightKg: number; note?: string | null }) => Promise<void>;
+  onUpdateWeight: (recordId: string, payload: { date: string; weightKg: number; note?: string | null }) => Promise<void>;
+  onDeleteWeight: (recordId: string) => Promise<void>;
 }) {
+  const [weightFormOpen, setWeightFormOpen] = useState(false);
+  const [editingWeight, setEditingWeight] = useState<AnimalWeightRecord | null>(null);
+  const [weightDate, setWeightDate] = useState("");
+  const [weightKg, setWeightKg] = useState("");
+  const [weightNote, setWeightNote] = useState("");
+  const [weightSaving, setWeightSaving] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  const openAddWeight = useCallback(() => {
+    setEditingWeight(null);
+    setWeightDate(new Date().toISOString().slice(0, 10));
+    setWeightKg("");
+    setWeightNote("");
+    setWeightFormOpen(true);
+  }, []);
+  const openEditWeight = useCallback((r: AnimalWeightRecord) => {
+    setEditingWeight(r);
+    setWeightDate(r.date);
+    setWeightKg(String(r.weightKg));
+    setWeightNote(r.note ?? "");
+    setWeightFormOpen(true);
+  }, []);
+  const submitWeight = useCallback(async () => {
+    const date = weightDate.trim();
+    const kg = weightKg.trim();
+    if (!date || !kg) return;
+    const num = parseFloat(kg);
+    if (Number.isNaN(num) || num <= 0) return;
+    setWeightSaving(true);
+    try {
+      if (editingWeight) {
+        await onUpdateWeight(editingWeight.id, { date, weightKg: num, note: weightNote.trim() || null });
+      } else {
+        await onAddWeight({ date, weightKg: num, note: weightNote.trim() || null });
+      }
+      setWeightFormOpen(false);
+      setEditingWeight(null);
+    } finally {
+      setWeightSaving(false);
+    }
+  }, [weightDate, weightKg, weightNote, editingWeight, onAddWeight, onUpdateWeight]);
+  const confirmDeleteWeight = useCallback(async (recordId: string) => {
+    await onDeleteWeight(recordId);
+    setDeleteConfirmId(null);
+  }, [onDeleteWeight]);
+
   return (
     <div className="mt-4 space-y-5">
       <dl className="space-y-3">
@@ -116,6 +175,125 @@ function AnimalDetailContent({
         </section>
       )}
 
+      <section>
+        <h4 className="text-sm font-semibold text-stone-700 dark:text-stone-300">Weight & weaning</h4>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={openAddWeight}
+            className="rounded-button bg-primary text-white px-3 py-1.5 text-sm font-medium hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            Log weight
+          </button>
+        </div>
+        {(detail.weightRecords ?? []).length === 0 ? (
+          <p className="mt-2 text-sm text-stone-500 dark:text-stone-400">No weight records yet.</p>
+        ) : (
+          <ul className="mt-2 space-y-2 rounded-card border border-stone-200 dark:border-stone-600 p-3 bg-stone-50 dark:bg-stone-800/50">
+            {(detail.weightRecords ?? []).map((r) => (
+              <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 text-sm text-stone-800 dark:text-stone-200">
+                <span><span className="font-medium">{r.date}</span> · {r.weightKg} kg{r.note ? ` · ${r.note}` : ""}</span>
+                <span className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => openEditWeight(r)}
+                    className="text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded px-1"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeleteConfirmId(r.id)}
+                    className="text-red-600 dark:text-red-400 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded px-1"
+                  >
+                    Delete
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {weightFormOpen && (
+        <div className="rounded-card border border-stone-200 dark:border-stone-600 p-4 bg-stone-50 dark:bg-stone-800/50 space-y-3">
+          <h5 className="text-sm font-semibold text-stone-800 dark:text-stone-200">
+            {editingWeight ? "Edit weight" : "Log weight"}
+          </h5>
+          <div className="grid grid-cols-1 gap-2">
+            <label className="text-sm text-stone-600 dark:text-stone-400">
+              Date
+              <input
+                type="date"
+                value={weightDate}
+                onChange={(e) => setWeightDate(e.target.value)}
+                className="ml-2 rounded border border-stone-300 dark:border-stone-600 px-2 py-1 text-stone-900 dark:text-stone-100 bg-white dark:bg-stone-800"
+              />
+            </label>
+            <label className="text-sm text-stone-600 dark:text-stone-400">
+              Weight (kg) *
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                value={weightKg}
+                onChange={(e) => setWeightKg(e.target.value)}
+                className="ml-2 rounded border border-stone-300 dark:border-stone-600 px-2 py-1 w-24 text-stone-900 dark:text-stone-100 bg-white dark:bg-stone-800"
+              />
+            </label>
+            <label className="text-sm text-stone-600 dark:text-stone-400">
+              Note (optional)
+              <input
+                type="text"
+                value={weightNote}
+                onChange={(e) => setWeightNote(e.target.value)}
+                placeholder="e.g. weaning"
+                className="ml-2 rounded border border-stone-300 dark:border-stone-600 px-2 py-1 flex-1 min-w-0 text-stone-900 dark:text-stone-100 bg-white dark:bg-stone-800"
+              />
+            </label>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={submitWeight}
+              disabled={weightSaving || !weightDate.trim() || !weightKg.trim() || parseFloat(weightKg) <= 0}
+              className="rounded-button bg-primary text-white px-3 py-1.5 text-sm font-medium disabled:opacity-50"
+            >
+              {weightSaving ? "Saving…" : editingWeight ? "Update" : "Save"}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setWeightFormOpen(false); setEditingWeight(null); }}
+              className="rounded-button border border-stone-300 dark:border-stone-600 px-3 py-1.5 text-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {deleteConfirmId && (
+        <div className="rounded-card border border-stone-200 dark:border-stone-600 p-4 bg-stone-50 dark:bg-stone-800/50">
+          <p className="text-sm text-stone-800 dark:text-stone-200">Delete this weight record?</p>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={() => confirmDeleteWeight(deleteConfirmId)}
+              className="rounded-button bg-red-600 text-white px-3 py-1.5 text-sm font-medium"
+            >
+              Delete
+            </button>
+            <button
+              type="button"
+              onClick={() => setDeleteConfirmId(null)}
+              className="rounded-button border border-stone-300 dark:border-stone-600 px-3 py-1.5 text-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {(detail.photos ?? []).filter((p) => p.url).length > 0 && (
         <section>
           <h4 className="text-sm font-semibold text-stone-700 dark:text-stone-300">Photos</h4>
@@ -185,10 +363,39 @@ export function DashboardProfiles() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortField>("earTag");
   const [selectedAnimal, setSelectedAnimal] = useState<AnimalProfile | null>(null);
+  const { user } = useAuth();
   const { stats, fromApi: statsFromApi, loading: statsLoading, isError, dataUpdatedAt, refetch } = useHerdStats();
   const { animals: allAnimals, fromApi: profilesFromApi, loading: profilesLoading, refetch: refetchProfiles } = useAnimalProfiles();
   const { detail: animalDetail, loading: detailLoading, refetch: refetchDetail } = useAnimalDetail(selectedAnimal?.id ?? null);
   const fromApi = statsFromApi || profilesFromApi;
+
+  const handleAddWeight = useCallback(
+    async (payload: { date: string; weightKg: number; note?: string | null }) => {
+      const db = await getFirebaseDb();
+      if (!db || !user?.uid || !selectedAnimal?.id) return;
+      await addWeightRecordToFirestore(db, user.uid, selectedAnimal.id, payload);
+      refetchDetail();
+    },
+    [user?.uid, selectedAnimal?.id, refetchDetail]
+  );
+  const handleUpdateWeight = useCallback(
+    async (recordId: string, payload: { date: string; weightKg: number; note?: string | null }) => {
+      const db = await getFirebaseDb();
+      if (!db || !user?.uid) return;
+      await updateWeightRecordInFirestore(db, user.uid, recordId, payload);
+      refetchDetail();
+    },
+    [user?.uid, refetchDetail]
+  );
+  const handleDeleteWeight = useCallback(
+    async (recordId: string) => {
+      const db = await getFirebaseDb();
+      if (!db || !user?.uid) return;
+      await deleteWeightRecordFromFirestore(db, user.uid, recordId);
+      refetchDetail();
+    },
+    [user?.uid, refetchDetail]
+  );
   const loading = statsLoading || profilesLoading;
   const dataSourceLabel = loading ? "Loading…" : fromApi ? "Synced" : isSampleDataEnabled() ? "Sample data" : "Connect app to sync";
   const updatedLabel = useMemo(
@@ -412,6 +619,9 @@ export function DashboardProfiles() {
               <AnimalDetailContent
                 detail={animalDetail}
                 onRefresh={() => { refetchDetail(); refetchProfiles(); }}
+                onAddWeight={handleAddWeight}
+                onUpdateWeight={handleUpdateWeight}
+                onDeleteWeight={handleDeleteWeight}
               />
             ) : (
               <>

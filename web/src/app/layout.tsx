@@ -1,8 +1,14 @@
 import type { Metadata, Viewport } from "next";
+import dynamic from "next/dynamic";
 import { Inter } from "next/font/google";
 import { APP_NAME } from "./lib/version";
 import "./globals.css";
-import { Providers } from "./providers";
+
+// Load Providers in a separate chunk to keep layout chunk small and avoid ChunkLoadError/timeout
+const Providers = dynamic(
+  () => import("./providers").then((m) => ({ default: m.Providers })),
+  { ssr: true }
+);
 
 const inter = Inter({ subsets: ["latin"] });
 

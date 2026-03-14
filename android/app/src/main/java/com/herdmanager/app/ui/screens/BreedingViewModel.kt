@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.herdmanager.app.domain.model.BreedingEvent
 import com.herdmanager.app.domain.model.FarmSettings
 import com.herdmanager.app.domain.model.HealthEvent
+import com.herdmanager.app.domain.model.isInCurrentHerd
 import com.herdmanager.app.domain.repository.AnimalRepository
 import com.herdmanager.app.domain.repository.BreedingEventRepository
 import com.herdmanager.app.domain.repository.CalvingEventRepository
@@ -75,8 +76,9 @@ class BreedingViewModel @Inject constructor(
         val gestation = settings.gestationDaysClamped()
         val calvedSet = calvedIds.toSet()
         val animalMap = animals.associateBy { it.id }
+        val activeAnimalIds = animals.filter { it.isInCurrentHerd }.map { it.id }.toSet()
         events
-            .filter { it.id !in calvedSet && it.dueDate(gestation) >= LocalDate.now().minusDays(30) }
+            .filter { it.animalId in activeAnimalIds && it.id !in calvedSet && it.dueDate(gestation) >= LocalDate.now().minusDays(30) }
             .sortedBy { it.dueDate(gestation) }
             .map { event ->
                 val dam = animalMap[event.animalId]
@@ -104,8 +106,9 @@ class BreedingViewModel @Inject constructor(
         val checkDays = settings.pregnancyCheckDaysClamped().toLong()
         val calvedSet = calvedIds.toSet()
         val animalMap = animals.associateBy { it.id }
+        val activeAnimalIds = animals.filter { it.isInCurrentHerd }.map { it.id }.toSet()
         events
-            .filter { it.id !in calvedSet && !it.hasPregnancyCheck }
+            .filter { it.animalId in activeAnimalIds && it.id !in calvedSet && !it.hasPregnancyCheck }
             .map { event ->
                 val checkDue = event.serviceDate.plusDays(checkDays)
                 event to checkDue
@@ -137,8 +140,9 @@ class BreedingViewModel @Inject constructor(
         val now = LocalDate.now()
         val endRange = now.plusDays(WITHDRAWAL_WINDOW_DAYS)
         val animalMap = animals.associateBy { it.id }
+        val activeAnimalIds = animals.filter { it.isInCurrentHerd }.map { it.id }.toSet()
         healthEvents
-            .filter { it.withdrawalPeriodEnd != null }
+            .filter { it.animalId in activeAnimalIds && it.withdrawalPeriodEnd != null }
             .mapNotNull { event ->
                 val end = event.withdrawalPeriodEnd!! 
                 if (end in now..endRange) {
@@ -170,6 +174,7 @@ class BreedingViewModel @Inject constructor(
         val windowEnd = now.plusDays(WEANING_ALERT_WINDOW_DAYS)
         val weightsByAnimal = allWeights.groupBy { it.animalId }
         animals
+            .filter { it.isInCurrentHerd }
             .mapNotNull { animal ->
                 val dob = animal.dateOfBirth
                 val weaningDue = dob.plusDays(weaningDays)

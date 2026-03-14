@@ -73,13 +73,15 @@ The following is implemented in the repo and ready to use when provisioning or c
 | Item | Location | Description |
 |------|----------|-------------|
 | **Registry example** | `scripts/solution-registry.example.json` | Schema and one example solution entry. Optional billing fields: `billingCustomerId`, `plan`, `billingStatus` (see [BILLING-IMPLEMENTATION.md](BILLING-IMPLEMENTATION.md)). Copy to `solution-registry.json` (or create from script); `solution-registry.json` is in `.gitignore` so real project IDs are not committed. |
-| **Create script** | `scripts/create-solution.js` | Run `node scripts/create-solution.js [--name "Farm Name"]` to generate a new `solutionId`, append an entry to `scripts/solution-registry.json`, and print next steps (create Firebase project, set env, deploy web, etc.). |
+| **Create script** | `scripts/create-solution.js` | Run `node scripts/create-solution.js [--name "Farm Name"]` to generate a new `solutionId`, append an entry to `scripts/solution-registry.json`, and print next steps (create Firebase project, set env, deploy web, etc.). Use `--print-solution-id` to output only the ID for scripting. |
+| **GCP project creation** | `scripts/create-gcp-project.js` | Run `node scripts/create-gcp-project.js <solutionId> --project-id <id> --name "Farm" (--org-id N | --folder-id N) [--billing-account ...] [--deploy]` to create a new GCP project via Cloud Resource Manager API, optionally link billing, and with `--deploy` run create-firebase-project and provision-instance. Requires `GOOGLE_APPLICATION_CREDENTIALS`. See [PROVISIONING-RUNBOOK.md](PROVISIONING-RUNBOOK.md) Option C. |
 | **Update script** | `scripts/update-solution.js` | Run `node scripts/update-solution.js <solutionId> [--firebase-project-id <id>] [--web-url <url>] [--billing-customer-id <id>] [--plan <plan>] [--billing-status <status>]` to set `firebaseProjectId`, `webUrl`, and/or optional billing fields on an existing registry entry. |
 | **Env-for-solution helper** | `scripts/env-for-solution.js` | Run `node scripts/env-for-solution.js <solutionId> [--support-url <url>]` to print ready-to-paste web env lines (NEXT_PUBLIC_SOLUTION_ID, NEXT_PUBLIC_SUPPORT_URL) and the Android Gradle command for that solution. Optionally validates `solutionId` against the registry. |
 | **List solutions** | `scripts/list-solutions.js` | Run `node scripts/list-solutions.js` for a table; `--ids` for one solutionId per line; `--project-ids` for one firebaseProjectId per line (for deploy loops); `--json` for JSON array; `--deployable` to list only entries with a non-empty `firebaseProjectId`. |
 | **Validate registry** | `scripts/validate-registry.js` | Run `node scripts/validate-registry.js` to check for duplicate `solutionId`, required fields (`solutionId`, `farmName`). Exit 0 if valid, 1 otherwise. Use in CI or before deploy. |
 | **Link billing (Phase Later)** | `scripts/link-billing.js` | Run `node scripts/link-billing.js <solutionId>` to print steps (or, if `STRIPE_SECRET_KEY` is set and `stripe` is installed, create the Stripe customer and update the registry in one step). Run with `--customer-id cus_xxx` to only update the registry. See [BILLING-IMPLEMENTATION.md](BILLING-IMPLEMENTATION.md). |
 | **Deploy to all instances** | `scripts/deploy-all-instances.sh`, `scripts/deploy-all-instances.ps1` | Run from repo root to validate the registry and deploy Cloud Functions and Firestore rules to every solution with a non-empty `firebaseProjectId`. See [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md) § Multi-instance. |
+| **Full onboarding** | `scripts/onboard-farm.sh`, `scripts/onboard-farm.ps1` | One-command onboarding: create solution, then create GCP project (and with `--deploy` / `-Deploy` add Firebase and provision rules/functions). See [PROVISIONING-RUNBOOK.md](PROVISIONING-RUNBOOK.md) § Full automated onboarding. |
 
 ### 5.2 Web dashboard
 
@@ -100,9 +102,15 @@ The following is implemented in the repo and ready to use when provisioning or c
 ### 5.4 Provisioning flow (using Phase 1)
 
 1. Run `node scripts/create-solution.js --name "Acme Farm"` to get `solutionId` and next steps.
-2. Create Firebase project; register Android and Web apps; get config.
-3. **Web:** Set `NEXT_PUBLIC_SOLUTION_ID` and `NEXT_PUBLIC_SUPPORT_URL` in `.env.production` (or build env); deploy.
-4. **Android:** Build with `-PsolutionId=<id> -PsupportBaseUrl=<url>` (or set in product flavour); ship APK/AAB.
-5. Update the registry entry with Firebase project and web URL: `node scripts/update-solution.js <solutionId> --firebase-project-id <id> --web-url <url>`.
+2. **Create Firebase project** — choose one:
+   - **Manual:** Create project in [Firebase Console](https://console.firebase.google.com/); enable Auth, Firestore, Storage.
+   - **Add Firebase to existing GCP project:** `node scripts/create-firebase-project.js <solutionId> --project-id <gcp-id> [--deploy]` (see [PROVISIONING-RUNBOOK.md](PROVISIONING-RUNBOOK.md) Option B).
+   - **Create GCP project then add Firebase (automated):** `node scripts/create-gcp-project.js <solutionId> --project-id <id> --name "Farm" (--org-id N | --folder-id N) [--deploy]` (runbook Option C). With `--deploy`, this also runs create-firebase-project and provision-instance.
+3. Register Android and Web apps in Firebase; get config.
+4. **Web:** Set `NEXT_PUBLIC_SOLUTION_ID` and `NEXT_PUBLIC_SUPPORT_URL` in `.env.production` (or build env); deploy.
+5. **Android:** Build with `-PsolutionId=<id> -PsupportBaseUrl=<url>` (or set in product flavour); ship APK/AAB.
+6. Update the registry entry with Firebase project and web URL: `node scripts/update-solution.js <solutionId> --firebase-project-id <id> --web-url <url>`.
 
-Billing integration, full automation (e.g. IaC), and support portal backend are **not** implemented yet; they are Phase Later per the strategy doc. When you add billing, use [BILLING-IMPLEMENTATION.md](BILLING-IMPLEMENTATION.md) to link solutionId to a payment provider (e.g. Stripe) and optionally store billing fields in the registry.
+For **full automated onboarding** (solution + GCP project + Firebase + deploy in one flow), use the runbook § “Full automated onboarding” or the `onboard-farm.sh` / `onboard-farm.ps1` scripts.
+
+Billing integration, full IaC, and support portal backend are **not** implemented yet; they are Phase Later per the strategy doc. When you add billing, use [BILLING-IMPLEMENTATION.md](BILLING-IMPLEMENTATION.md) to link solutionId to a payment provider (e.g. Stripe) and optionally store billing fields in the registry.

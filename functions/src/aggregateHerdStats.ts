@@ -38,9 +38,22 @@ export interface CalvingDoc {
   actualDate?: number;
 }
 
+/** Per-alert-type due-soon counts for FCM and API (extend when health/weaning added to job). */
+export interface DueSoonBreakdown {
+  calvingDue: number;
+  /** Reserved for future: pregnancy check due in window. */
+  pregnancyCheckDue?: number;
+  /** Reserved for future: withdrawal due. */
+  withdrawalDue?: number;
+  /** Reserved for future: weaning weight due. */
+  weaningDue?: number;
+}
+
 export interface HerdStats {
   totalAnimals: number;
   dueSoon: number;
+  /** Per-type breakdown for notifications and API. */
+  dueSoonBreakdown: DueSoonBreakdown;
   calvingsThisYear: number;
   breedingEventsThisYear: number;
   openPregnant: number;
@@ -73,7 +86,7 @@ export function computeHerdStatsFromDocs(
   const yearStartEpoch = dateToEpochDay(yearStart);
 
   let openPregnant = 0;
-  let dueSoon = 0;
+  let calvingDue = 0;
   breeding.forEach((doc) => {
     if (calvedBreedingIds.has(doc.id)) return;
     const result = doc.pregnancyCheckResult || "";
@@ -82,8 +95,15 @@ export function computeHerdStatsFromDocs(
     const serviceDate = doc.serviceDate;
     if (typeof serviceDate !== "number") return;
     const dueEpoch = serviceDate + GESTATION_DAYS;
-    if (dueEpoch >= todayEpoch && dueEpoch <= todayEpoch + DUE_SOON_DAYS) dueSoon++;
+    if (dueEpoch >= todayEpoch && dueEpoch <= todayEpoch + DUE_SOON_DAYS) calvingDue++;
   });
+  const dueSoon = calvingDue; // total; extend with pregnancyCheckDue, withdrawalDue, weaningDue when data available
+  const dueSoonBreakdown: DueSoonBreakdown = {
+    calvingDue,
+    pregnancyCheckDue: 0,
+    withdrawalDue: 0,
+    weaningDue: 0,
+  };
 
   const calvingsThisYear = calvingDates.filter((epoch) => epoch >= yearStartEpoch).length;
 
@@ -137,6 +157,7 @@ export function computeHerdStatsFromDocs(
   return {
     totalAnimals: animals.length,
     dueSoon,
+    dueSoonBreakdown,
     calvingsThisYear,
     breedingEventsThisYear,
     openPregnant,

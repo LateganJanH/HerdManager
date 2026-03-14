@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Reduce client chunk size; can help avoid ChunkLoadError/timeout in dev
+  experimental: {
+    optimizePackageImports: ["@tanstack/react-query"],
+  },
   async headers() {
     return [
       {

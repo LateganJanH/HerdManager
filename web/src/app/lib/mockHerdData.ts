@@ -84,6 +84,14 @@ export interface AnimalHealthEvent {
   notes?: string;
 }
 
+/** Weight record for animal detail (from Firestore). */
+export interface AnimalWeightRecord {
+  id: string;
+  date: string; // YYYY-MM-DD
+  weightKg: number;
+  note?: string | null;
+}
+
 /** Photo with optional URL (from Firebase Storage) for display on web/other devices. */
 export interface AnimalDetailPhoto {
   id: string;
@@ -109,6 +117,8 @@ export interface AnimalDetail {
   breedingEvents: AnimalBreedingEvent[];
   calvingEvents: AnimalCalvingEvent[];
   healthEvents: AnimalHealthEvent[];
+  /** Weight records (date, kg, note) for growth/weaning. */
+  weightRecords: AnimalWeightRecord[];
   photoCount: number;
   /** Photo URLs for display when synced via Firebase Storage. */
   photos: AnimalDetailPhoto[];

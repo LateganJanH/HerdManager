@@ -6,6 +6,7 @@ import com.herdmanager.app.data.local.dao.HerdAssignmentDao
 import com.herdmanager.app.data.local.dao.HerdDao
 import com.herdmanager.app.data.local.dao.CalvingEventDao
 import com.herdmanager.app.data.local.dao.HealthEventDao
+import com.herdmanager.app.data.local.dao.ConditionRecordDao
 import com.herdmanager.app.data.local.dao.ExpenseCategoryDao
 import com.herdmanager.app.data.local.dao.PhotoDao
 import com.herdmanager.app.data.local.dao.FarmTaskDao
@@ -15,6 +16,7 @@ import com.herdmanager.app.data.local.entity.AnimalEntity
 import com.herdmanager.app.data.local.entity.BreedingEventEntity
 import com.herdmanager.app.data.local.entity.CalvingEventEntity
 import com.herdmanager.app.data.local.entity.HealthEventEntity
+import com.herdmanager.app.data.local.entity.ConditionRecordEntity
 import com.herdmanager.app.data.local.entity.HerdAssignmentEntity
 import com.herdmanager.app.data.local.entity.HerdEntity
 import com.herdmanager.app.data.local.entity.ExpenseCategoryEntity
@@ -38,6 +40,7 @@ class BackupRepositoryImpl(
     private val breedingEventDao: BreedingEventDao,
     private val calvingEventDao: CalvingEventDao,
     private val healthEventDao: HealthEventDao,
+    private val conditionRecordDao: ConditionRecordDao,
     private val weightRecordDao: WeightRecordDao,
     private val photoDao: PhotoDao,
     private val transactionDao: TransactionDao,
@@ -54,6 +57,7 @@ class BackupRepositoryImpl(
         val breedingEvents = breedingEventDao.getAll()
         val calvingEvents = calvingEventDao.getAll()
         val healthEvents = healthEventDao.getAll()
+        val conditionRecords = conditionRecordDao.getAll()
         val weightRecords = weightRecordDao.getAll()
         val photos = photoDao.getAll()
         val transactions = transactionDao.getAll()
@@ -177,6 +181,18 @@ class BackupRepositoryImpl(
                     })
                 }
             })
+            put("conditionRecords", JSONArray().apply {
+                conditionRecords.forEach { e ->
+                    put(JSONObject().apply {
+                        put("id", e.id)
+                        put("animalId", e.animalId)
+                        put("dateEpochDay", e.dateEpochDay)
+                        put("score", e.score)
+                        put("notes", e.notes)
+                        put("updatedAt", if (e.updatedAt > 0L) e.updatedAt else e.dateEpochDay * 86400_000)
+                    })
+                }
+            })
             put("weightRecords", JSONArray().apply {
                 weightRecords.forEach { e ->
                     put(JSONObject().apply {
@@ -264,6 +280,7 @@ class BackupRepositoryImpl(
         photoDao.deleteAll()
         weightRecordDao.deleteAll()
         healthEventDao.deleteAll()
+        conditionRecordDao.deleteAll()
         calvingEventDao.deleteAll()
         breedingEventDao.deleteAll()
         herdAssignmentDao.deleteAll()
@@ -467,6 +484,25 @@ class BackupRepositoryImpl(
                         date = date,
                         weightKg = o.getDouble("weightKg"),
                         note = o.optString("note").takeIf { it.isNotEmpty() },
+                        updatedAt = updatedAt
+                    )
+                )
+            }
+        }
+
+        // Condition records
+        root.optJSONArray("conditionRecords")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val dateEpochDay = o.getLong("dateEpochDay")
+                val updatedAt = o.optLong("updatedAt", -1).takeIf { it >= 0 } ?: (dateEpochDay * 86400_000)
+                conditionRecordDao.insert(
+                    ConditionRecordEntity(
+                        id = o.getString("id"),
+                        animalId = o.getString("animalId"),
+                        dateEpochDay = dateEpochDay,
+                        score = o.getInt("score"),
+                        notes = o.optString("notes").takeIf { it.isNotEmpty() },
                         updatedAt = updatedAt
                     )
                 )

@@ -77,6 +77,13 @@ export function useAnimalDetail(animalId: string | null): {
           ),
           refresh
         ),
+        firestore.onSnapshot(
+          firestore.query(
+            firestore.collection(d, base, "weight_records"),
+            firestore.where("animalId", "==", animalId)
+          ),
+          refresh
+        ),
       ];
     })();
     return () => {

@@ -7,6 +7,7 @@ import com.herdmanager.app.data.local.dao.AnimalDao
 import com.herdmanager.app.data.local.dao.BreedingEventDao
 import com.herdmanager.app.data.local.dao.CalvingEventDao
 import com.herdmanager.app.data.local.dao.ExpenseCategoryDao
+import com.herdmanager.app.data.local.dao.ConditionRecordDao
 import com.herdmanager.app.data.local.dao.HerdAssignmentDao
 import com.herdmanager.app.data.local.dao.HerdDao
 import com.herdmanager.app.data.local.dao.HealthEventDao
@@ -18,6 +19,7 @@ import com.herdmanager.app.data.local.entity.AnimalEntity
 import com.herdmanager.app.data.local.entity.BreedingEventEntity
 import com.herdmanager.app.data.local.entity.CalvingEventEntity
 import com.herdmanager.app.data.local.entity.ExpenseCategoryEntity
+import com.herdmanager.app.data.local.entity.ConditionRecordEntity
 import com.herdmanager.app.data.local.entity.HealthEventEntity
 import com.herdmanager.app.data.local.entity.HerdAssignmentEntity
 import com.herdmanager.app.data.local.entity.HerdEntity
@@ -38,9 +40,10 @@ import com.herdmanager.app.data.local.entity.FarmTaskEntity
         HerdAssignmentEntity::class,
         TransactionEntity::class,
         ExpenseCategoryEntity::class,
-        FarmTaskEntity::class
+        FarmTaskEntity::class,
+        ConditionRecordEntity::class
     ],
-    version = 17,
+    version = 18,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -56,4 +59,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun transactionDao(): TransactionDao
     abstract fun expenseCategoryDao(): ExpenseCategoryDao
     abstract fun farmTaskDao(): FarmTaskDao
+    abstract fun conditionRecordDao(): ConditionRecordDao
 }

@@ -54,6 +54,7 @@ import com.herdmanager.app.domain.model.BreedingEvent
 import com.herdmanager.app.domain.model.Sex
 import com.herdmanager.app.domain.model.HealthEvent
 import com.herdmanager.app.domain.model.WeightRecord
+import com.herdmanager.app.domain.model.ConditionRecord
 import com.herdmanager.app.ui.components.AddHealthEventDialog
 import com.herdmanager.app.ui.components.LogWeightDialog
 import com.herdmanager.app.ui.components.RecordBreedingDialog
@@ -83,12 +84,14 @@ fun AnimalDetailScreen(
     val healthEvents by viewModel.healthEvents.collectAsState(initial = emptyList())
     val weightRecords by viewModel.weightRecords.collectAsState(initial = emptyList())
     val growthSummary by viewModel.growthSummary.collectAsState(initial = null)
+    val conditionRecords by viewModel.conditionRecords.collectAsState(initial = emptyList())
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showTransferHerd by remember { mutableStateOf(false) }
     var showAddHealthEvent by remember { mutableStateOf(false) }
     var showLogWeight by remember { mutableStateOf(false) }
     var healthEventToEdit by remember { mutableStateOf<HealthEvent?>(null) }
     var weightRecordToEdit by remember { mutableStateOf<WeightRecord?>(null) }
+    var conditionRecordToEdit by remember { mutableStateOf<ConditionRecord?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -116,12 +119,15 @@ fun AnimalDetailScreen(
                 is AnimalDetailOperationResult.Error -> result.message
             }
             snackbarHostState.showSnackbar(message)
-            when (result) {
-                is AnimalDetailOperationResult.Success -> {
-                    when (result.operation) {
-                        AnimalDetailOperation.HEALTH -> showAddHealthEvent = false
-                        AnimalDetailOperation.WEIGHT -> showLogWeight = false
-                        AnimalDetailOperation.TRANSFER -> showTransferHerd = false
+                when (result) {
+                        is AnimalDetailOperationResult.Success -> {
+                            when (result.operation) {
+                                AnimalDetailOperation.HEALTH -> showAddHealthEvent = false
+                                AnimalDetailOperation.WEIGHT -> {
+                                    showLogWeight = false
+                                    weightRecordToEdit = null
+                                }
+                                AnimalDetailOperation.TRANSFER -> showTransferHerd = false
                         AnimalDetailOperation.DELETE_ANIMAL -> {
                             delay(1200)
                             onAnimalDeleted()
@@ -235,6 +241,19 @@ fun AnimalDetailScreen(
                     onDeleteClick = { viewModel.deleteHealthEvent(it.id) }
                 )
                 Spacer(modifier = Modifier.height(24.dp))
+                ConditionSection(
+                    records = conditionRecords,
+                    onAddClick = { conditionRecordToEdit = ConditionRecord(
+                        id = "",
+                        animalId = animalId,
+                        date = LocalDate.now(),
+                        score = 5,
+                        notes = null
+                    ) },
+                    onEditClick = { conditionRecordToEdit = it },
+                    onDeleteClick = { viewModel.deleteConditionRecord(it.id) }
+                )
+                Spacer(modifier = Modifier.height(24.dp))
                 WeightsSection(
                     weightRecords = weightRecords,
                     growthSummary = growthSummary,
@@ -336,6 +355,168 @@ fun AnimalDetailScreen(
             existing = weightRecordToEdit
         )
     }
+    if (conditionRecordToEdit != null) {
+        ConditionRecordDialog(
+            existing = conditionRecordToEdit,
+            onConfirm = { recordId, date, score, notes ->
+                val aid = animal?.id ?: return@ConditionRecordDialog
+                if (recordId.isNullOrEmpty()) {
+                    viewModel.addConditionRecord(date, score, notes)
+                } else {
+                    viewModel.updateConditionRecord(
+                        ConditionRecord(
+                            id = recordId,
+                            animalId = aid,
+                            date = date,
+                            score = score,
+                            notes = notes
+                        )
+                    )
+                }
+                conditionRecordToEdit = null
+            },
+            onDismiss = { conditionRecordToEdit = null }
+        )
+    }
+}
+
+@Composable
+private fun ConditionSection(
+    records: List<ConditionRecord>,
+    onAddClick: () -> Unit,
+    onEditClick: (ConditionRecord) -> Unit,
+    onDeleteClick: (ConditionRecord) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Condition", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+            TextButton(onClick = onAddClick) {
+                Text("Record score")
+            }
+        }
+        if (records.isEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                "No condition scores yet.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            Spacer(modifier = Modifier.height(8.dp))
+            records.forEach { record ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Score ${record.score}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            record.date.toString(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        record.notes?.let {
+                            Text(
+                                it,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        TextButton(onClick = { onEditClick(record) }) {
+                            Text("Edit")
+                        }
+                        TextButton(onClick = { onDeleteClick(record) }) {
+                            Text(
+                                "Delete",
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ConditionRecordDialog(
+    existing: ConditionRecord?,
+    onConfirm: (recordId: String?, date: LocalDate, score: Int, notes: String?) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var date by remember(existing) { mutableStateOf(existing?.date ?: LocalDate.now()) }
+    var score by remember(existing) { mutableStateOf(existing?.score ?: 5) }
+    var notes by remember(existing) { mutableStateOf(existing?.notes ?: "") }
+
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (existing == null) "Record condition score" else "Edit condition score") },
+        text = {
+            Column {
+                Text("Date: $date", style = MaterialTheme.typography.bodyMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Score (1–9)", style = MaterialTheme.typography.bodyMedium)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    (1..9).forEach { value ->
+                        Button(
+                            onClick = { score = value },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.size(width = 40.dp, height = 36.dp),
+                            enabled = true
+                        ) {
+                            Text(
+                                value.toString(),
+                                color = if (score == value) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                androidx.compose.material3.OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = { Text("Notes (optional)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 3
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(existing?.id, date, score, notes.takeIf { it.isNotBlank() }) }) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @Composable
@@ -718,7 +899,7 @@ private fun WeightsSection(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "${record.date} · ${record.weightKg} kg",
                             style = MaterialTheme.typography.bodyMedium
@@ -727,10 +908,10 @@ private fun WeightsSection(
                     }
                     Row {
                         IconButton(onClick = { onEditClick(record) }) {
-                            Icon(Icons.Default.Edit, contentDescription = "Edit")
+                            Icon(Icons.Default.Edit, contentDescription = "Edit weight")
                         }
                         IconButton(onClick = { recordToDelete = record }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete")
+                            Icon(Icons.Default.Delete, contentDescription = "Delete weight")
                         }
                     }
                 }

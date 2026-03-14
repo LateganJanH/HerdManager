@@ -14,7 +14,6 @@ import * as admin from "firebase-admin";
 import express, { Request, Response } from "express";
 import Stripe from "stripe";
 
-const db = admin.firestore();
 const CONFIG_APP = "config/app";
 const FIELD_ACCESS_SUSPENDED = "accessSuspended";
 
@@ -60,11 +59,11 @@ export function createStripeWebhookApp(): express.Express {
         if (event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") {
           const sub = event.data.object as Stripe.Subscription;
           const accessSuspended = getAccessSuspendedForSubscription(sub);
-          await db.doc(CONFIG_APP).set({ [FIELD_ACCESS_SUSPENDED]: accessSuspended }, { merge: true });
+          await admin.firestore().doc(CONFIG_APP).set({ [FIELD_ACCESS_SUSPENDED]: accessSuspended }, { merge: true });
           console.log("Updated config/app accessSuspended:", accessSuspended, "subscription:", sub.id);
         } else if (event.type === "invoice.payment_failed") {
           // Conservative: treat payment failure as access suspended until subscription is updated
-          await db.doc(CONFIG_APP).set({ [FIELD_ACCESS_SUSPENDED]: true }, { merge: true });
+          await admin.firestore().doc(CONFIG_APP).set({ [FIELD_ACCESS_SUSPENDED]: true }, { merge: true });
           console.log("Updated config/app accessSuspended=true after invoice.payment_failed");
         }
         res.json({ received: true });

@@ -100,4 +100,27 @@ object Migrations {
             db.execSQL("CREATE INDEX IF NOT EXISTS index_farm_tasks_animalId ON farm_tasks(animalId)")
         }
     }
+
+    /**
+     * Adds condition_records table for body condition scoring (BCS).
+     */
+    val MIGRATION_17_18 = object : Migration(17, 18) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS condition_records (
+                    id TEXT PRIMARY KEY NOT NULL,
+                    animalId TEXT NOT NULL,
+                    dateEpochDay INTEGER NOT NULL,
+                    score INTEGER NOT NULL,
+                    notes TEXT,
+                    updatedAt INTEGER NOT NULL DEFAULT 0,
+                    FOREIGN KEY(animalId) REFERENCES animals(id) ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_condition_records_animalId ON condition_records(animalId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_condition_records_dateEpochDay ON condition_records(dateEpochDay)")
+        }
+    }
 }

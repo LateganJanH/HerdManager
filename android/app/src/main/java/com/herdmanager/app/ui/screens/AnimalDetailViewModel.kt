@@ -21,9 +21,11 @@ import com.herdmanager.app.domain.model.Photo
 import com.herdmanager.app.domain.model.PhotoAngle
 import com.herdmanager.app.domain.repository.CalvingEventRepository
 import com.herdmanager.app.domain.model.WeightRecord
+import com.herdmanager.app.domain.model.ConditionRecord
 import com.herdmanager.app.domain.repository.HealthEventRepository
 import com.herdmanager.app.domain.repository.PhotoRepository
 import com.herdmanager.app.domain.repository.WeightRecordRepository
+import com.herdmanager.app.domain.repository.ConditionRecordRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
@@ -87,6 +89,7 @@ class AnimalDetailViewModel @Inject constructor(
     private val photoRepository: PhotoRepository,
     private val healthEventRepository: HealthEventRepository,
     private val weightRecordRepository: WeightRecordRepository,
+    private val conditionRecordRepository: ConditionRecordRepository,
     private val farmSettingsRepository: FarmSettingsRepository
 ) : ViewModel() {
 
@@ -125,6 +128,13 @@ class AnimalDetailViewModel @Inject constructor(
         )
 
     val weightRecords = weightRecordRepository.observeWeightRecordsByAnimal(animalId)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList()
+        )
+
+    val conditionRecords = conditionRecordRepository.observeByAnimal(animalId)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -484,6 +494,75 @@ class AnimalDetailViewModel @Inject constructor(
                     AnimalDetailOperationResult.Success(AnimalDetailOperation.DELETE_WEIGHT, "Weight record removed")
                 }.getOrElse {
                     AnimalDetailOperationResult.Error(AnimalDetailOperation.DELETE_WEIGHT, it.message ?: "Could not delete")
+                }
+            }
+            _operationResult.emit(result)
+        }
+    }
+
+    fun addConditionRecord(date: LocalDate, score: Int, notes: String?) {
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val record = ConditionRecord(
+                        id = UUID.randomUUID().toString(),
+                        animalId = animalId,
+                        date = date,
+                        score = score,
+                        notes = notes?.takeIf { it.isNotBlank() }
+                    )
+                    conditionRecordRepository.insert(record)
+                    AnimalDetailOperationResult.Success(
+                        AnimalDetailOperation.HEALTH,
+                        "Condition score recorded"
+                    )
+                }.getOrElse {
+                    AnimalDetailOperationResult.Error(
+                        AnimalDetailOperation.HEALTH,
+                        it.message ?: "Could not record condition score"
+                    )
+                }
+            }
+            _operationResult.emit(result)
+        }
+    }
+
+    fun updateConditionRecord(record: ConditionRecord) {
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    conditionRecordRepository.update(
+                        record.copy(notes = record.notes?.takeIf { it.isNotBlank() })
+                    )
+                    AnimalDetailOperationResult.Success(
+                        AnimalDetailOperation.HEALTH,
+                        "Condition score updated"
+                    )
+                }.getOrElse {
+                    AnimalDetailOperationResult.Error(
+                        AnimalDetailOperation.HEALTH,
+                        it.message ?: "Could not update condition score"
+                    )
+                }
+            }
+            _operationResult.emit(result)
+        }
+    }
+
+    fun deleteConditionRecord(id: String) {
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    conditionRecordRepository.delete(id)
+                    AnimalDetailOperationResult.Success(
+                        AnimalDetailOperation.HEALTH,
+                        "Condition score deleted"
+                    )
+                }.getOrElse {
+                    AnimalDetailOperationResult.Error(
+                        AnimalDetailOperation.HEALTH,
+                        it.message ?: "Could not delete condition score"
+                    )
                 }
             }
             _operationResult.emit(result)

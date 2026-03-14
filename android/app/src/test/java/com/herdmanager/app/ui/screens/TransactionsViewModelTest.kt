@@ -101,6 +101,7 @@ private class FakeSyncRepository : SyncRepository {
     override suspend fun syncNow() = Result.success(Unit)
 }
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class MainDispatcherRule(
     private val dispatcher: TestDispatcher = UnconfinedTestDispatcher()
 ) : TestWatcher() {

@@ -16,4 +16,5 @@ export const SAMPLE_STATS_DATA: HerdStats = {
   avgDailyGainAllKgPerDay: 0.9,
   avgDailyGainBySexKgPerDay: { MALE: 1.0, FEMALE: 0.85 },
   avgWeaningWeightKg: 210,
+  weaningWeightSamplesKg: [180, 190, 195, 205, 210, 215, 220, 225, 230, 240],
 };

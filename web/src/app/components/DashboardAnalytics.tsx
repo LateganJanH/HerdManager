@@ -45,6 +45,16 @@ function downloadCsvReport(stats: HerdStats, series: AnalyticsSeries[]) {
   if (typeof stats.avgWeaningWeightKg === "number") {
     rows.push(["Avg weaning weight (kg)", stats.avgWeaningWeightKg.toFixed(1)]);
   }
+  if (typeof stats.avgConditionScore === "number") {
+    rows.push(["Avg body condition score (BCS)", stats.avgConditionScore.toFixed(1)]);
+  }
+   if (stats.avgDailyGainBySexKgPerDay && Object.keys(stats.avgDailyGainBySexKgPerDay).length > 0) {
+    rows.push([]);
+    rows.push(["Avg daily gain by sex", "kg/day"]);
+    for (const [sex, gain] of Object.entries(stats.avgDailyGainBySexKgPerDay)) {
+      rows.push([sex, Number(gain).toFixed(2)]);
+    }
+  }
   rows.push([]);
   rows.push(["By status", "Count"]);
   for (const [name, count] of Object.entries(stats.byStatus)) {
@@ -103,7 +113,12 @@ function downloadPdfReport(stats: HerdStats, series: AnalyticsSeries[]) {
   doc.text(`Breeding events this year: ${stats.breedingEventsThisYear}`, margin, y);
   y += lineHeight;
   doc.text(`Open / pregnant: ${stats.openPregnant}`, margin, y);
-  y += lineHeight + 4;
+  y += lineHeight;
+  if (typeof stats.avgConditionScore === "number") {
+    doc.text(`Avg BCS: ${stats.avgConditionScore.toFixed(1)}`, margin, y);
+    y += lineHeight;
+  }
+  y += 4;
 
   doc.setFont("helvetica", "bold");
   doc.text("By status", margin, y);
@@ -179,6 +194,16 @@ function downloadExcelReport(
   if (typeof stats.avgWeaningWeightKg === "number") {
     summaryRows.push(["Avg weaning weight (kg)", Number(stats.avgWeaningWeightKg.toFixed(1))]);
   }
+  if (typeof stats.avgConditionScore === "number") {
+    summaryRows.push(["Avg body condition score (BCS)", Number(stats.avgConditionScore.toFixed(1))]);
+  }
+  if (stats.avgDailyGainBySexKgPerDay && Object.keys(stats.avgDailyGainBySexKgPerDay).length > 0) {
+    summaryRows.push(["", ""]);
+    summaryRows.push(["Avg daily gain by sex (kg/day)", ""]);
+    for (const [sex, gain] of Object.entries(stats.avgDailyGainBySexKgPerDay)) {
+      summaryRows.push([sex, Number(gain).toFixed(2)]);
+    }
+  }
   XLSX.utils.book_append_sheet(
     wb,
     XLSX.utils.aoa_to_sheet(summaryRows),
@@ -214,6 +239,14 @@ function downloadExcelReport(
     const breedingRows: (string | number)[][] = [["Month", "Breeding events"], ...months.map((m, i) => [m, eventsByMonth.breedingByMonth[i] ?? 0])];
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(calvingsRows), "Calvings by month");
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(breedingRows), "Breeding by month");
+  }
+
+  if (stats.weaningWeightSamplesKg && stats.weaningWeightSamplesKg.length > 0) {
+    const weightsRows: (string | number)[][] = [["Index", "Weaning weight (kg)"]];
+    stats.weaningWeightSamplesKg.forEach((w, i) => {
+      weightsRows.push([i + 1, Number(w.toFixed(1))]);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(weightsRows), "Weaning weights");
   }
 
   XLSX.writeFile(wb, `herd-report-${dateStr}.xlsx`);
@@ -257,6 +290,26 @@ export function DashboardAnalytics() {
     downloadExcelReport(stats, series, eventsByMonthForCharts ?? null);
   }, [stats, series, eventsByMonthForCharts]);
   const dataSourceLabel = loading ? "Loading…" : fromApi ? "From API" : sample ? "Sample data" : "Connect app to sync";
+  const growthBySex = stats.avgDailyGainBySexKgPerDay ?? {};
+
+  // Simple histogram buckets for weaning weights (kg).
+  const weaningBuckets = useMemo(() => {
+    const samples = stats.weaningWeightSamplesKg ?? [];
+    if (!samples.length) return null;
+    const buckets = [
+      { label: "< 180", min: Number.NEGATIVE_INFINITY, max: 179.99, count: 0 },
+      { label: "180–199", min: 180, max: 199.99, count: 0 },
+      { label: "200–219", min: 200, max: 219.99, count: 0 },
+      { label: "220–239", min: 220, max: 239.99, count: 0 },
+      { label: "≥ 240", min: 240, max: Number.POSITIVE_INFINITY, count: 0 },
+    ];
+    samples.forEach((w) => {
+      const bucket = buckets.find((b) => w >= b.min && w <= b.max);
+      if (bucket) bucket.count += 1;
+    });
+    const maxCount = Math.max(...buckets.map((b) => b.count), 1);
+    return { buckets, maxCount, total: samples.length };
+  }, [stats.weaningWeightSamplesKg]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 space-y-6">
@@ -381,6 +434,52 @@ export function DashboardAnalytics() {
           </p>
         </section>
       ) : null}
+
+      {typeof stats.avgConditionScore === "number" && (
+        <section
+          className="rounded-card bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-600 p-5 shadow-card"
+          aria-label="Body condition score"
+        >
+          <h3 className="text-lg font-semibold text-stone-900 dark:text-stone-100 mb-4">
+            Condition (BCS)
+          </h3>
+          <p className="text-sm text-stone-600 dark:text-stone-400 mb-2">
+            Average body condition score (1–9) for the current herd. Record scores per animal in the app to keep this up to date.
+          </p>
+          <p className="text-2xl font-semibold tabular-nums text-stone-900 dark:text-stone-100">
+            {stats.avgConditionScore.toFixed(1)}
+          </p>
+          {stats.bcsDistribution && Object.values(stats.bcsDistribution).some((c) => c > 0) && (
+            <div className="mt-4 space-y-1.5">
+              <p className="text-sm font-medium text-stone-700 dark:text-stone-300">
+                Distribution (scores 1–9)
+              </p>
+              <div className="flex items-end gap-1.5 h-16" role="img" aria-label="BCS distribution">
+                {Array.from({ length: 9 }, (_, i) => i + 1).map((score) => {
+                  const dist = stats.bcsDistribution!;
+                  const count = dist[score] ?? 0;
+                  const max = Math.max(...Array.from({ length: 9 }, (_, j) => dist[j + 1] ?? 0), 1);
+                  const heightPct = (count / max) * 100;
+                  return (
+                    <div key={score} className="flex-1 flex flex-col items-center gap-1 min-w-[8px]">
+                      <div className="w-full bg-stone-200 dark:bg-stone-700 rounded-full overflow-hidden h-full flex items-end">
+                        <div
+                          className="w-full rounded-full bg-primary/90 dark:bg-primary/80 transition-all duration-500"
+                          style={{ height: `${heightPct}%` }}
+                          aria-hidden
+                        />
+                      </div>
+                      <span className="text-[10px] text-stone-600 dark:text-stone-400 tabular-nums">
+                        {score}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       {stats.byCategory && (
         <section
@@ -596,6 +695,77 @@ export function DashboardAnalytics() {
           </p>
         )}
       </section>
+
+      {(typeof stats.avgDailyGainAllKgPerDay === "number" || Object.keys(growthBySex).length > 0 || weaningBuckets) && (
+        <section
+          className="rounded-card bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-600 p-5 shadow-card"
+          aria-label="Growth and weaning metrics"
+        >
+          <h3 className="text-lg font-semibold text-stone-900 dark:text-stone-100 mb-2">
+            Growth &amp; weaning
+          </h3>
+          <p className="text-sm text-stone-600 dark:text-stone-400 mb-4">
+            Average daily gain by sex and distribution of recorded weaning weights based on synced weight records.
+          </p>
+          {typeof stats.avgDailyGainAllKgPerDay === "number" && (
+            <p className="text-sm text-stone-600 dark:text-stone-300 mb-3">
+              Overall avg daily gain:{" "}
+              <strong>{stats.avgDailyGainAllKgPerDay.toFixed(2)} kg/day</strong>
+            </p>
+          )}
+          {Object.keys(growthBySex).length > 0 && (
+            <div className="mb-4">
+              <h4 className="text-sm font-medium text-stone-700 dark:text-stone-300 mb-2">Avg daily gain by sex</h4>
+              <div className="space-y-2">
+                {Object.entries(growthBySex).map(([sex, gain]) => (
+                  <div key={sex} className="flex items-center justify-between text-sm">
+                    <span className="text-stone-700 dark:text-stone-300">{sex}</span>
+                    <span className="font-medium text-stone-900 dark:text-stone-100">
+                      {Number.isFinite(gain) ? `${gain.toFixed(2)} kg/day` : "—"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {weaningBuckets && (
+            <div>
+              <h4 className="text-sm font-medium text-stone-700 dark:text-stone-300 mb-2">
+                Weaning weight distribution (kg)
+              </h4>
+              <div className="space-y-2">
+                {weaningBuckets.buckets.map((b) => (
+                  <div key={b.label} className="flex items-center gap-3">
+                    <span className="w-20 text-xs font-medium text-stone-700 dark:text-stone-300 shrink-0">
+                      {b.label}
+                    </span>
+                    <div className="flex-1 h-4 rounded-full bg-stone-200 dark:bg-stone-600 overflow-hidden min-w-[40px]">
+                      <div
+                        className="h-full rounded-full bg-primary/80 dark:bg-primary/70 transition-all"
+                        style={{
+                          width: `${(b.count / weaningBuckets.maxCount) * 100}%`,
+                        }}
+                        role="presentation"
+                      />
+                    </div>
+                    <span className="w-6 text-right text-xs font-medium text-stone-900 dark:text-stone-100">
+                      {b.count}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-stone-500 dark:text-stone-400">
+                Based on {weaningBuckets.total} recorded weaning weights.
+              </p>
+            </div>
+          )}
+          {!fromApi && !sample && (
+            <p className="mt-3 text-xs text-stone-500 dark:text-stone-400">
+              Connect the {APP_NAME} Android app and sync weight records to see growth and weaning metrics here.
+            </p>
+          )}
+        </section>
+      )}
 
       <section className="rounded-card bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-600 p-5 shadow-card">
         <h3 className="text-lg font-semibold text-stone-900 dark:text-stone-100 mb-2">

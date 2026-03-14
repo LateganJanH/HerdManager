@@ -8,6 +8,8 @@ import { isSampleDataEnabled } from "../lib/mockHerdData";
 import { useHerdStats } from "../lib/useHerdStats";
 import { useAlerts } from "../lib/useAlerts";
 import { useFarmSettings } from "../lib/useFarmSettings";
+import { useFarmTasks } from "../lib/useFarmTasks";
+import type { FarmTaskDoc } from "../lib/useFarmTasks";
 import { APP_NAME } from "../lib/version";
 
 const DUE_SOON_PREVIEW_MAX = 3;
@@ -31,11 +33,29 @@ function dueSoonLabel(type: "calving" | "pregnancy_check" | "withdrawal" | "wean
   return `Weaning weight in ${daysUntil} days`;
 }
 
+const OPEN_TASK_STATUSES = ["PENDING", "IN_PROGRESS"] as const;
+function isOpenTask(t: FarmTaskDoc) {
+  return OPEN_TASK_STATUSES.includes(t.status as (typeof OPEN_TASK_STATUSES)[number]);
+}
+
+function tasksSummary(tasks: FarmTaskDoc[]) {
+  const open = tasks.filter(isOpenTask);
+  const todayEpoch = Math.floor(new Date().getTime() / 86400_000);
+  const dueToday = open.filter((t) => t.dueDateEpochDay === todayEpoch);
+  const overdue = open.filter(
+    (t) => t.dueDateEpochDay != null && t.dueDateEpochDay < todayEpoch
+  );
+  return { openCount: open.length, dueTodayCount: dueToday.length, overdueCount: overdue.length };
+}
+
 export function DashboardHome() {
   const pathname = usePathname();
   const { stats, fromApi, loading, isError, dataUpdatedAt, refetch } = useHerdStats();
   const { alerts } = useAlerts();
   const { farm } = useFarmSettings();
+  const { tasks, loading: tasksLoading, fromApi: tasksFromApi } = useFarmTasks();
+  const taskSummary = tasksSummary(tasks);
+  const openTasksPreview = tasks.filter(isOpenTask).slice(0, 3);
   const dueSoonPreview = useMemo(
     () => [...alerts].sort((a, b) => a.daysUntil - b.daysUntil).slice(0, DUE_SOON_PREVIEW_MAX),
     [alerts]
@@ -112,10 +132,10 @@ export function DashboardHome() {
 
       {/* Quick stats tiles – responsive, wrap to fit viewport */}
       <section aria-label="Quick stats">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {loading ? (
             <>
-              {[1, 2, 3].map((i) => (
+              {[1, 2, 3, 4].map((i) => (
                 <div
                   key={i}
                   className="rounded-card bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-600 p-5 shadow-card animate-pulse"
@@ -181,6 +201,39 @@ export function DashboardHome() {
                 <p className="text-sm font-medium text-stone-500 dark:text-stone-400">Transactions</p>
                 <p className="mt-1.5 text-2xl font-semibold tracking-tight text-primary">Sales · Purchases · Expenses</p>
                 <p className="mt-2 text-sm text-stone-600 dark:text-stone-400">View totals & analytics →</p>
+              </Link>
+              <Link
+                href={`${pathname || "/"}?tab=tasks`}
+                className="rounded-card bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-600 p-5 shadow-card hover:shadow-card-hover transition-shadow block"
+              >
+                <p className="text-sm font-medium text-stone-500 dark:text-stone-400">Tasks & reminders</p>
+                {tasksLoading ? (
+                  <p className="mt-1.5 text-stone-500 dark:text-stone-400">Loading…</p>
+                ) : tasksFromApi ? (
+                  <>
+                    <p className="mt-1.5 text-2xl font-semibold tracking-tight text-primary">
+                      {taskSummary.openCount > 0 ? taskSummary.openCount : "—"}
+                    </p>
+                    <p className="mt-2 text-sm text-stone-600 dark:text-stone-400">
+                      {taskSummary.openCount > 0
+                        ? `${taskSummary.dueTodayCount} due today · ${taskSummary.overdueCount} overdue`
+                        : "No open tasks"}
+                    </p>
+                    {openTasksPreview.length > 0 && (
+                      <ul className="mt-3 space-y-1 text-sm text-stone-700 dark:text-stone-300" aria-label="Tasks preview">
+                        {openTasksPreview.map((t) => (
+                          <li key={t.id} className="truncate">{t.title}</li>
+                        ))}
+                      </ul>
+                    )}
+                    <p className="mt-3 text-sm text-primary font-medium">Manage tasks →</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="mt-1.5 text-2xl font-semibold tracking-tight text-stone-400 dark:text-stone-500">—</p>
+                    <p className="mt-2 text-sm text-stone-600 dark:text-stone-400">Sync app to see tasks</p>
+                  </>
+                )}
               </Link>
             </>
           )}
@@ -248,10 +301,59 @@ export function DashboardHome() {
             </li>
           </ul>
         </div>
+        {stats.byCategory && (
+          <div className="rounded-card bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-600 p-5 shadow-card sm:col-span-2">
+            <h3 className="text-base font-semibold tracking-tight text-stone-900 dark:text-stone-100">
+              By category
+            </h3>
+            <ul className="mt-3 grid grid-cols-2 sm:grid-cols-5 gap-x-4 gap-y-1.5 text-base text-stone-700 dark:text-stone-300">
+              {(["Calves", "Heifers", "Cows", "Bulls", "Steers"] as const).map((label) => {
+                const byCategory = stats.byCategory!;
+                return (
+                  <li key={label} className="flex justify-between gap-2">
+                    <span>{label}</span>
+                    <span className="font-medium tabular-nums text-stone-900 dark:text-stone-100">
+                      {byCategory[label]}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
           </>
         )}
         </div>
       </section>
+
+      {/* Attention needed – at-risk (open cows, overdue weaning) */}
+      {!loading && stats.atRiskPreview && stats.atRiskPreview.length > 0 && (
+        <section aria-labelledby="attention-heading">
+          <h2 id="attention-heading" className="text-lg font-semibold tracking-tight text-stone-900 dark:text-stone-100">
+            Attention needed (at risk)
+          </h2>
+          <div className="mt-4 rounded-card border border-accent-alert/50 bg-accent-alert-bg dark:bg-stone-800/80 p-5 shadow-card">
+            <p className="text-sm text-stone-700 dark:text-stone-300 mb-3">
+              Open cows/heifers with no breeding in 60 days, or calves with weaning weight overdue. Review and act from the app.
+            </p>
+            <ul className="space-y-1.5 text-sm text-stone-700 dark:text-stone-300" aria-label="At-risk preview">
+              {stats.atRiskPreview.map((item) => (
+                <li key={`${item.animalId}-${item.reason}`}>
+                  {item.earTag} – {item.reason}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3">
+              <Link
+                href={`${pathname || "/"}?tab=alerts`}
+                className="text-sm font-medium text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
+              >
+                View Alerts →
+              </Link>
+            </p>
+          </div>
+        </section>
+      )}
 
       {/* Analytics preview – charts / progress (compact dashboard) */}
       <section className="rounded-card bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-600 p-5 shadow-card" aria-labelledby="analytics-heading">

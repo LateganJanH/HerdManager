@@ -70,6 +70,7 @@ export async function GET(request: Request) {
       const serviceDate = toEpochDay(data.serviceDate);
       return {
         id: doc.id,
+        animalId: data.animalId as string | undefined,
         pregnancyCheckResult: data.pregnancyCheckResult as string | undefined,
         serviceDate: serviceDate ?? undefined,
       };
